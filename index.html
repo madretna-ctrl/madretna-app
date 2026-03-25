@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifreader@4.14.1/dist/exif-reader.min.js"></script>
 <style>
   :root {
     --verde: #2d5a27;
@@ -736,9 +737,10 @@
       <div class="form-group">
         <label>📍 Posizione GPS</label>
         <div class="gps-row">
-          <button class="gps-btn" onclick="getGPS()">🛰 Rileva posizione</button>
+          <button class="gps-btn" id="gps-btn" onclick="getGPS()">🛰 Rileva posizione</button>
           <div class="gps-value" id="gps-display">Posizione non rilevata</div>
         </div>
+        <div id="gps-source" style="font-size:0.75rem;margin-top:0.4rem;opacity:0.6;display:none"></div>
         <input type="hidden" id="gps-lat">
         <input type="hidden" id="gps-lng">
       </div>
@@ -936,9 +938,75 @@ function handlePhoto(input) {
     preview.style.display = 'block';
     document.querySelector('.photo-upload .upload-icon').style.display = 'none';
     document.querySelector('.photo-upload p').style.display = 'none';
+
+    // Prova a estrarre coordinate GPS dai metadati EXIF
+    extractExifGPS(file);
     analyzePhoto();
   };
   reader.readAsDataURL(file);
+}
+
+// ============================================================
+// EXIF GPS EXTRACTION
+// ============================================================
+async function extractExifGPS(file) {
+  const gpsBtn     = document.getElementById('gps-btn');
+  const gpsDisplay = document.getElementById('gps-display');
+  const gpsSource  = document.getElementById('gps-source');
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const tags = ExifReader.load(arrayBuffer);
+
+    const latTag = tags['GPSLatitude'];
+    const lngTag = tags['GPSLongitude'];
+    const latRef = tags['GPSLatitudeRef'];
+    const lngRef = tags['GPSLongitudeRef'];
+
+    if (latTag && lngTag) {
+      // Converti da gradi/minuti/secondi a decimale
+      const toDecimal = (val) => {
+        const [deg, min, sec] = val.value;
+        return deg[0]/deg[1] + (min[0]/min[1])/60 + (sec[0]/sec[1])/3600;
+      };
+
+      let lat = toDecimal(latTag);
+      let lng = toDecimal(lngTag);
+
+      if (latRef && latRef.value[0] === 'S') lat = -lat;
+      if (lngRef && lngRef.value[0] === 'W') lng = -lng;
+
+      // Coordinate valide trovate nei metadati EXIF
+      gpsLat = lat;
+      gpsLng = lng;
+      document.getElementById('gps-lat').value = lat;
+      document.getElementById('gps-lng').value = lng;
+      gpsDisplay.textContent = `✅ ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      gpsSource.textContent  = '📷 Coordinate estratte dai metadati della foto';
+      gpsSource.style.display = 'block';
+      gpsSource.style.color   = 'var(--accent)';
+
+      // Disabilita pulsante GPS manuale
+      gpsBtn.disabled = true;
+      gpsBtn.style.opacity = '0.45';
+      gpsBtn.title = 'Coordinate già disponibili dai metadati EXIF della foto';
+
+    } else {
+      // Nessun dato GPS nei metadati — riabilita GPS manuale
+      noExifGPS(gpsBtn, gpsSource);
+    }
+  } catch (err) {
+    // Errore lettura EXIF — riabilita GPS manuale
+    noExifGPS(gpsBtn, gpsSource);
+  }
+}
+
+function noExifGPS(gpsBtn, gpsSource) {
+  gpsBtn.disabled = true;
+  gpsBtn.style.opacity = '0.45';
+  gpsSource.textContent  = '⚠️ Non è possibile risalire alle coordinate GPS per questa foto, per favore in descrizione inserisci indicazioni sul luogo del rinvenimento.';
+  gpsSource.style.display = 'block';
+  gpsSource.style.color   = 'var(--arancio)';
 }
 
 // ============================================================
@@ -1000,7 +1068,10 @@ async function submitReport() {
   const btn = document.getElementById('submit-btn');
 
   if (!tipo) { alert('Seleziona il tipo di rifiuto.'); return; }
-  if (!gpsLat) { alert('Rileva la posizione GPS prima di inviare.'); return; }
+  if (!gpsLat && !desc) {
+    alert('Non è possibile inviare una segnalazione senza una indicazione del luogo del ritrovamento.');
+    return;
+  }
   if (!privacy) { alert('Devi accettare l\'informativa sulla privacy per inviare la segnalazione.'); return; }
 
   btn.disabled = true;
@@ -1036,6 +1107,10 @@ async function submitReport() {
   document.getElementById('segnalante-telefono').value = '';
   document.getElementById('privacy-check').checked = false;
   document.getElementById('gps-display').textContent = 'Posizione non rilevata';
+  document.getElementById('gps-source').style.display = 'none';
+  const gpsBtn = document.getElementById('gps-btn');
+  gpsBtn.disabled = false;
+  gpsBtn.style.opacity = '1';
   document.getElementById('photo-preview').style.display = 'none';
   document.querySelector('.photo-upload .upload-icon').style.display = 'block';
   document.querySelector('.photo-upload p').style.display = 'block';
