@@ -1,10 +1,10 @@
-const CACHE = 'madr-etna-v1';
+const CACHE = 'madr-etna-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png',
+  '/madretna-app/',
+  '/madretna-app/index.html',
+  '/madretna-app/manifest.json',
+  '/madretna-app/icon-192x192.png',
+  '/madretna-app/icon-512x512.png',
   'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',

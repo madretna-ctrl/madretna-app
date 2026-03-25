@@ -6,14 +6,14 @@
 <title>MadrEtna — Segnala uno Sversamento</title>
 
 <!-- PWA -->
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="/madretna-app/manifest.json">
 <meta name="theme-color" content="#2d5a27">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MadrEtna">
-<link rel="apple-touch-icon" href="/icon-192x192.png">
-<link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="144x144" href="/icon-144x144.png">
+<link rel="apple-touch-icon" href="/madretna-app/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/madretna-app/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="144x144" href="/madretna-app/icon-144x144.png">
 
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -729,7 +729,7 @@
       <div class="privacy-row">
         <input type="checkbox" id="privacy-check">
         <label for="privacy-check">
-          Ho letto e accetto l'<a href="/privacy.html" target="_blank">informativa sulla privacy</a> ai sensi del GDPR (Reg. UE 2016/679). I dati personali forniti saranno trattati da Associazione MadrEtna esclusivamente per la gestione delle segnalazioni ambientali.
+          Ho letto e accetto l'<a href="/madretna-app/privacy.html" target="_blank">informativa sulla privacy</a> ai sensi del GDPR (Reg. UE 2016/679). I dati personali forniti saranno trattati da Associazione MadrEtna esclusivamente per la gestione delle segnalazioni ambientali.
         </label>
       </div>
 
@@ -1150,7 +1150,7 @@ window.addEventListener('load', async () => {
 // Registrazione Service Worker (PWA)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('/madretna-app/sw.js')
       .then(() => console.log('✅ Service Worker registrato'))
       .catch(e => console.warn('SW non registrato:', e));
   });
