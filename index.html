@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MadrEtna — Segnala uno Sversamento</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2d5a27">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MadrEtna">
+<link rel="apple-touch-icon" href="/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="144x144" href="/icon-144x144.png">
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --verde: #2d5a27;
+    --verde-chiaro: #4a8c3f;
+    --lava: #1a1a1a;
+    --terra: #6b3d14;
+    --sabbia: #f4ede0;
+    --grigio: #e8e2d9;
+    --rosso: #c0392b;
+    --arancio: #e67e22;
+    --accent: #8bc34a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--lava);
+    color: var(--sabbia);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: #ffffff;
+    border-bottom: 3px solid var(--verde);
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--verde);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+  }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1.3rem;
+    letter-spacing: 0.02em;
+  }
+  .logo-text span { color: var(--accent); }
+  .nav-tabs {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .nav-tab {
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--verde);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7;
+    font-weight: 500;
+  }
+  .nav-tab.active {
+    background: var(--verde);
+    border-color: var(--verde-chiaro);
+    color: #fff;
+    opacity: 1;
+  }
+  .nav-tab:hover { opacity: 1; }
+
+  /* STATS BAR */
+  .stats-bar {
+    background: var(--verde);
+    padding: 0.5rem 1.5rem;
+  }
+  .stats-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* MAP VIEW */
+  .map-container {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid #333;
+    margin-bottom: 1.5rem;
+  }
+  #map { height: 420px; width: 100%; }
+
+  .reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .report-card {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+    cursor: pointer;
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .report-card:hover { transform: translateY(-3px); border-color: var(--verde-chiaro); }
+
+  .report-img {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+  }
+  .report-body { padding: 1rem; }
+  .report-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+  .badge-ingombranti { background: #c0392b22; color: #e74c3c; border: 1px solid #c0392b55; }
+  .badge-scarti { background: #e67e2222; color: #f39c12; border: 1px solid #e67e2255; }
+  .badge-plastica { background: #2980b922; color: #3498db; border: 1px solid #2980b955; }
+  .badge-elettrodomestici { background: #8e44ad22; color: #9b59b6; border: 1px solid #8e44ad55; }
+  .badge-altro { background: #27ae6022; color: #2ecc71; border: 1px solid #27ae6055; }
+
+  .report-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+  }
+  .report-meta {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    display: flex;
+    gap: 1rem;
+  }
+
+  /* FORM VIEW */
+  .form-card {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .form-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    margin-bottom: 0.3rem;
+  }
+  .form-subtitle {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin-bottom: 2rem;
+  }
+
+  .form-group { margin-bottom: 1.5rem; }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+  }
+
+  select, textarea, input[type="text"] {
+    width: 100%;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: var(--sabbia);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+  select:focus, textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--verde-chiaro);
+  }
+  textarea { resize: vertical; min-height: 90px; }
+
+  /* PHOTO UPLOAD */
+  .photo-upload {
+    border: 2px dashed #444;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .photo-upload:hover { border-color: var(--verde-chiaro); background: #2a2a2a; }
+  .photo-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .photo-upload .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .photo-upload p { font-size: 0.85rem; opacity: 0.7; }
+  .photo-preview {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-top: 0.75rem;
+    display: none;
+  }
+
+  /* GPS */
+  .gps-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .gps-btn {
+    flex-shrink: 0;
+    background: var(--verde);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.75rem 1.1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+  .gps-btn:hover { background: var(--verde-chiaro); }
+  .gps-value {
+    flex: 1;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: var(--sabbia);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    padding: 0.75rem 1rem;
+    opacity: 0.7;
+  }
+
+  /* SUBMIT */
+  .submit-btn {
+    width: 100%;
+    background: var(--verde);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 1rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+  .submit-btn:hover { background: var(--verde-chiaro); transform: translateY(-1px); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* SUCCESS */
+  .success-msg {
+    display: none;
+    background: #1a3a1a;
+    border: 1px solid var(--verde);
+    border-radius: 10px;
+    padding: 1.2rem;
+    text-align: center;
+    margin-top: 1rem;
+  }
+  .success-msg.show { display: block; animation: fadeIn 0.4s ease; }
+  .success-msg p { font-size: 0.95rem; }
+  .success-msg strong { color: var(--accent); }
+
+  /* AI ANALYSIS */
+  .ai-box {
+    background: #1a2a1a;
+    border: 1px solid var(--verde);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-top: 1rem;
+    display: none;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .ai-box.show { display: block; animation: fadeIn 0.4s ease; }
+  .ai-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .ai-spinner {
+    width: 12px; height: 12px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    opacity: 0.5;
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000a;
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: fadeIn 0.25s ease;
+  }
+  .modal-img {
+    width: 100%;
+    max-height: 250px;
+    object-fit: cover;
+    border-radius: 14px 14px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    background: #2a2a2a;
+    min-height: 120px;
+  }
+  .modal-body { padding: 1.5rem; }
+  .modal-close {
+    float: right;
+    background: #333;
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-left: 1rem;
+  }
+  .modal-desc { margin: 0.75rem 0; font-size: 0.9rem; line-height: 1.6; opacity: 0.85; }
+  .modal-coords { font-size: 0.75rem; opacity: 0.5; font-family: monospace; }
+
+  /* FILTER BAR */
+  .filter-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+  }
+  .filter-chip {
+    padding: 0.3rem 0.9rem;
+    border-radius: 20px;
+    border: 1px solid #444;
+    background: transparent;
+    color: var(--sabbia);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .filter-chip.active, .filter-chip:hover {
+    background: var(--verde);
+    border-color: var(--verde-chiaro);
+  }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  /* PRIVACY CHECKBOX */
+  .privacy-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.2rem;
+    background: #1a2a1a;
+    border: 1px solid #2d5a27;
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+  }
+  .privacy-row input[type="checkbox"] {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    accent-color: var(--verde-chiaro);
+    cursor: pointer;
+  }
+  .privacy-row label {
+    font-size: 0.8rem;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--sabbia);
+    opacity: 0.85;
+    cursor: pointer;
+    font-weight: 400;
+  }
+  .privacy-row label a { color: var(--accent); text-decoration: underline; }
+
+  /* TWO COLUMNS */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* EMAIL SECTION on map view */
+  .email-section {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+  }
+  .email-section textarea,
+  .email-section input[type="text"] {
+    width: 100%;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: var(--sabbia);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.2s;
+    margin-bottom: 0;
+  }
+  .email-section textarea { resize: vertical; min-height: 90px; }
+  .email-section textarea:focus,
+  .email-section input:focus { outline: none; border-color: var(--verde-chiaro); }
+  .email-send-btn {
+    background: var(--verde);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0.85rem 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  .email-send-btn:hover { background: var(--verde-chiaro); transform: translateY(-1px); }
+  .email-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .email-note { font-size: 0.75rem; opacity: 0.5; margin-top: 0.6rem; text-align:center; }
+  .email-note a { color: var(--accent); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a3a1a;
+    border: 1px solid var(--verde);
+    border-radius: 10px;
+    padding: 0.8rem 1.5rem;
+    font-size: 0.85rem;
+    z-index: 9999;
+    display: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px #0006;
+  }
+  .toast.error { background: #3a1a1a; border-color: var(--rosso); }
+  .toast.show { display: block; animation: fadeIn 0.3s ease; }
+
+  @media (max-width: 600px) {
+    .stats-inner { gap: 1rem; flex-wrap: wrap; }
+    .nav-tab { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
+    .form-card { padding: 1.2rem; }
+  }
+
+  /* INSTALL BANNER */
+  #install-banner {
+    display: none;
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e3a1e;
+    border: 1px solid var(--verde-chiaro);
+    border-radius: 14px;
+    padding: 0.9rem 1.2rem;
+    align-items: center;
+    gap: 1rem;
+    z-index: 3000;
+    box-shadow: 0 8px 32px #0008;
+    max-width: 340px;
+    width: 90%;
+    animation: fadeIn 0.4s ease;
+  }
+  #install-banner p { font-size: 0.85rem; flex: 1; line-height: 1.4; }
+  #install-banner button {
+    background: var(--verde);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #install-banner .close-banner {
+    background: transparent;
+    color: var(--sabbia);
+    opacity: 0.5;
+    padding: 0.2rem 0.4rem;
+    font-size: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <img src="data:image/png;base64,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" alt="MadrEtna" style="height:52px;width:auto;">
+    </div>
+    <nav class="nav-tabs">
+      <button class="nav-tab active" onclick="showView('map')">🗺 Mappa</button>
+      <button class="nav-tab" onclick="showView('report')">📍 Segnala</button>
+    </nav>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <span class="stat-num" id="stat-count">0</span>
+      <span>segnalazioni totali</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num" id="stat-month">0</span>
+      <span>questo mese</span>
+    </div>
+    <div class="stat-item">🌿 Parco dell'Etna — dati in tempo reale</div>
+  </div>
+</div>
+
+<!-- MAP VIEW -->
+<div class="main">
+  <div class="view active" id="view-map">
+    <div class="section-title">🗺 Mappa degli sversamenti</div>
+
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-chip active" onclick="filterReports('tutti', this)">Tutti</button>
+      <button class="filter-chip" onclick="filterReports('Rifiuti ingombranti', this)">🛋 Ingombranti</button>
+      <button class="filter-chip" onclick="filterReports('Scarti edili', this)">🧱 Scarti edili</button>
+      <button class="filter-chip" onclick="filterReports('Plastica e rifiuti urbani', this)">🧴 Plastica</button>
+      <button class="filter-chip" onclick="filterReports('Elettrodomestici', this)">📺 Elettrodomestici</button>
+      <button class="filter-chip" onclick="filterReports('Altro', this)">📦 Altro</button>
+    </div>
+
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+
+    <div class="section-title">📋 Segnalazioni recenti</div>
+    <div class="reports-grid" id="reports-grid">
+      <div class="empty-state" id="empty-state">
+        <div class="icon">🌲</div>
+        <p>Nessuna segnalazione ancora.<br>Sii il primo a contribuire!</p>
+      </div>
+    </div>
+
+    <!-- CONTATTO EMAIL -->
+    <div class="email-section">
+      <div class="section-title" style="margin-bottom:0.6rem">✉️ Contatta l'associazione</div>
+      <p style="font-size:0.85rem;opacity:0.7;margin-bottom:1.2rem">Hai bisogno di segnalare qualcosa di urgente o vuoi metterti in contatto con i volontari MadrEtna?</p>
+      <a id="mailto-btn" href="#"
+         style="display:inline-flex;align-items:center;gap:0.6rem;background:var(--verde);border-radius:10px;color:#fff;font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;padding:0.85rem 1.8rem;text-decoration:none;transition:background 0.2s"
+         onmouseover="this.style.background='#4a8c3f'" onmouseout="this.style.background='#2d5a27'">
+        📨 Invia email a MadrEtna
+      </a>
+    </div>
+  </div>
+
+  <!-- REPORT VIEW -->
+  <div class="view" id="view-report">
+    <div class="form-card">
+      <div class="form-title">📍 Nuova segnalazione</div>
+      <div class="form-subtitle">Aiutaci a mappare gli sversamenti nel Parco dell'Etna</div>
+
+      <div class="form-group">
+        <label>📸 Foto del sito</label>
+        <div class="photo-upload" id="photo-drop">
+          <input type="file" accept="image/*" id="photo-input" onchange="handlePhoto(this)">
+          <div class="upload-icon">📷</div>
+          <p>Scatta una foto o caricane una dalla galleria</p>
+          <img class="photo-preview" id="photo-preview" src="" alt="preview">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>🗂 Tipo di rifiuto</label>
+        <select id="tipo-rifiuto">
+          <option value="">— Seleziona —</option>
+          <option>Rifiuti ingombranti</option>
+          <option>Scarti edili</option>
+          <option>Plastica e rifiuti urbani</option>
+          <option>Elettrodomestici</option>
+          <option>Altro</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>📝 Descrizione</label>
+        <textarea id="descrizione" placeholder="Descrivi brevemente la situazione: quantità approssimativa, accesso al sito, eventuali rischi…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>👤 Dati segnalante <span style="opacity:0.5;font-weight:400;text-transform:none">(facoltativi)</span></label>
+        <div class="two-col" style="margin-bottom:0.75rem">
+          <input type="text" id="segnalante-nome" placeholder="Nome">
+          <input type="text" id="segnalante-cognome" placeholder="Cognome">
+        </div>
+        <input type="text" id="segnalante-telefono" placeholder="📞 Numero di telefono">
+      </div>
+
+      <div class="privacy-row">
+        <input type="checkbox" id="privacy-check">
+        <label for="privacy-check">
+          Ho letto e accetto l'<a href="/privacy.html" target="_blank">informativa sulla privacy</a> ai sensi del GDPR (Reg. UE 2016/679). I dati personali forniti saranno trattati da Associazione MadrEtna esclusivamente per la gestione delle segnalazioni ambientali.
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label>📍 Posizione GPS</label>
+        <div class="gps-row">
+          <button class="gps-btn" onclick="getGPS()">🛰 Rileva posizione</button>
+          <div class="gps-value" id="gps-display">Posizione non rilevata</div>
+        </div>
+        <input type="hidden" id="gps-lat">
+        <input type="hidden" id="gps-lng">
+      </div>
+
+      <div class="ai-box" id="ai-box">
+        <div class="ai-label"><div class="ai-spinner" id="ai-spinner"></div> <span id="ai-label-text">Analisi AI in corso…</span></div>
+        <div id="ai-content"></div>
+      </div>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitReport()">🌿 Invia segnalazione</button>
+
+      <div class="success-msg" id="success-msg">
+        <p>✅ <strong>Segnalazione inviata!</strong><br>Grazie per contribuire alla difesa del Parco dell'Etna.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-img" id="modal-img"></div>
+    <div class="modal-body">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div id="modal-badge"></div>
+      <div class="form-title" id="modal-title" style="margin-top:0.5rem"></div>
+      <div class="modal-desc" id="modal-desc"></div>
+      <div class="modal-coords" id="modal-coords"></div>
+      <div class="ai-box show" id="modal-ai" style="margin-top:1rem"></div>
+    </div>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ============================================================
+// SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://yonlwnggyzfshkypdsus.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7Euxhk2THGCC35P-_V4nJQ_Ey5mz1oL';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+// STATE
+// ============================================================
+let reports = [];
+let map, markers = [], currentFilter = 'tutti';
+let gpsLat = null, gpsLng = null;
+let currentPhotoBase64 = null;
+
+const BADGE_CLASSES = {
+  'Rifiuti ingombranti': 'badge-ingombranti',
+  'Scarti edili': 'badge-scarti',
+  'Plastica e rifiuti urbani': 'badge-plastica',
+  'Elettrodomestici': 'badge-elettrodomestici',
+  'Altro': 'badge-altro'
+};
+const TYPE_EMOJI = {
+  'Rifiuti ingombranti': '🛋', 'Scarti edili': '🧱',
+  'Plastica e rifiuti urbani': '🧴', 'Elettrodomestici': '📺', 'Altro': '📦'
+};
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-tab')[name === 'map' ? 0 : 1].classList.add('active');
+  if (name === 'map') setTimeout(() => { map && map.invalidateSize(); }, 100);
+}
+
+// ============================================================
+// MAP
+// ============================================================
+function initMap() {
+  map = L.map('map').setView([37.73, 15.00], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+  renderMap();
+}
+
+function renderMap() {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  const filtered = currentFilter === 'tutti' ? reports : reports.filter(r => r.tipo === currentFilter);
+  filtered.forEach((r, i) => {
+    if (!r.lat || !r.lng) return;
+    const icon = L.divIcon({
+      html: `<div style="background:${r.tipo === 'Rifiuti ingombranti' ? '#c0392b' : r.tipo === 'Scarti edili' ? '#e67e22' : r.tipo === 'Plastica e rifiuti urbani' ? '#2980b9' : r.tipo === 'Elettrodomestici' ? '#8e44ad' : '#27ae60'};
+        width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;
+        display:flex;align-items:center;justify-content:center">
+        <span style="transform:rotate(45deg);font-size:12px">${TYPE_EMOJI[r.tipo] || '📦'}</span></div>`,
+      className: '', iconSize: [28, 28], iconAnchor: [14, 28]
+    });
+    const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
+    m.on('click', () => openModal(reports.indexOf(r)));
+    markers.push(m);
+  });
+}
+
+// ============================================================
+// REPORTS GRID
+// ============================================================
+function renderGrid() {
+  const grid = document.getElementById('reports-grid');
+  const empty = document.getElementById('empty-state');
+  const filtered = currentFilter === 'tutti' ? reports : reports.filter(r => r.tipo === currentFilter);
+  const sorted = [...filtered].reverse();
+
+  grid.innerHTML = '';
+  if (sorted.length === 0) {
+    grid.appendChild(empty);
+    empty.style.display = 'block';
+    return;
+  }
+
+  sorted.forEach(r => {
+    const idx = reports.indexOf(r);
+    const card = document.createElement('div');
+    card.className = 'report-card';
+    card.onclick = () => openModal(idx);
+    const imgHtml = r.photo
+      ? `<img src="${r.photo}" style="width:100%;height:160px;object-fit:cover">`
+      : `<div class="report-img">${TYPE_EMOJI[r.tipo] || '📦'}</div>`;
+    card.innerHTML = `${imgHtml}
+      <div class="report-body">
+        <span class="report-badge ${BADGE_CLASSES[r.tipo] || 'badge-altro'}">${r.tipo || 'Altro'}</span>
+        <div class="report-title">${r.descrizione ? r.descrizione.slice(0, 60) + (r.descrizione.length > 60 ? '…' : '') : 'Segnalazione #' + (idx+1)}</div>
+        <div class="report-meta">
+          <span>📅 ${r.date}</span>
+          ${r.lat ? `<span>📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</span>` : ''}
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function updateStats() {
+  document.getElementById('stat-count').textContent = reports.length;
+  const now = new Date();
+  const thisMonth = reports.filter(r => {
+    const d = new Date(r.dateRaw);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  document.getElementById('stat-month').textContent = thisMonth;
+}
+
+function filterReports(tipo, btn) {
+  currentFilter = tipo;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderGrid();
+  renderMap();
+}
+
+// ============================================================
+// GPS
+// ============================================================
+function getGPS() {
+  const display = document.getElementById('gps-display');
+  display.textContent = '⏳ Rilevamento in corso…';
+  if (!navigator.geolocation) {
+    display.textContent = '❌ GPS non disponibile su questo dispositivo';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    gpsLat = pos.coords.latitude;
+    gpsLng = pos.coords.longitude;
+    document.getElementById('gps-lat').value = gpsLat;
+    document.getElementById('gps-lng').value = gpsLng;
+    display.textContent = `✅ ${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+  }, err => {
+    // fallback: random near Etna for demo
+    gpsLat = 37.68 + (Math.random() - 0.5) * 0.15;
+    gpsLng = 15.00 + (Math.random() - 0.5) * 0.2;
+    document.getElementById('gps-lat').value = gpsLat;
+    document.getElementById('gps-lng').value = gpsLng;
+    display.textContent = `📍 Demo: ${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+  }, { timeout: 8000 });
+}
+
+// ============================================================
+// PHOTO
+// ============================================================
+function handlePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentPhotoBase64 = e.target.result;
+    const preview = document.getElementById('photo-preview');
+    preview.src = currentPhotoBase64;
+    preview.style.display = 'block';
+    document.querySelector('.photo-upload .upload-icon').style.display = 'none';
+    document.querySelector('.photo-upload p').style.display = 'none';
+    analyzePhoto();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================================
+// AI ANALYSIS
+// ============================================================
+async function analyzePhoto() {
+  const tipo = document.getElementById('tipo-rifiuto').value;
+  const desc = document.getElementById('descrizione').value;
+  const aiBox = document.getElementById('ai-box');
+  const aiContent = document.getElementById('ai-content');
+  const aiLabelText = document.getElementById('ai-label-text');
+  const aiSpinner = document.getElementById('ai-spinner');
+
+  aiBox.classList.add('show');
+  aiSpinner.style.display = 'block';
+  aiLabelText.textContent = 'Analisi AI in corso…';
+  aiContent.textContent = '';
+
+  const prompt = `Sei un assistente ambientale per l'associazione MadrEtna che tutela il Parco dell'Etna in Sicilia.
+Un volontario ha segnalato uno sversamento di rifiuti. ${tipo ? 'Tipo dichiarato: ' + tipo + '.' : ''} ${desc ? 'Descrizione: ' + desc : ''}
+Rispondi in italiano, in modo conciso (max 3 frasi), con:
+1. Una stima della gravità ambientale (bassa/media/alta)
+2. Un consiglio pratico immediato per il volontario
+3. A chi segnalare il caso (es. Corpo Forestale, Comune, ARPA Sicilia)
+Sii diretto e utile.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.map(c => c.text || '').join('') || 'Analisi non disponibile.';
+    aiSpinner.style.display = 'none';
+    aiLabelText.textContent = '🤖 Analisi AI';
+    aiContent.textContent = text;
+  } catch (e) {
+    aiSpinner.style.display = 'none';
+    aiLabelText.textContent = '🤖 Analisi AI';
+    aiContent.textContent = 'Analisi non disponibile al momento. Invia comunque la segnalazione.';
+  }
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+async function submitReport() {
+  const tipo = document.getElementById('tipo-rifiuto').value;
+  const desc = document.getElementById('descrizione').value;
+  const nome = document.getElementById('segnalante-nome').value.trim();
+  const cognome = document.getElementById('segnalante-cognome').value.trim();
+  const telefono = document.getElementById('segnalante-telefono').value.trim();
+  const privacy = document.getElementById('privacy-check').checked;
+  const btn = document.getElementById('submit-btn');
+
+  if (!tipo) { alert('Seleziona il tipo di rifiuto.'); return; }
+  if (!gpsLat) { alert('Rileva la posizione GPS prima di inviare.'); return; }
+  if (!privacy) { alert('Devi accettare l\'informativa sulla privacy per inviare la segnalazione.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Invio in corso…';
+
+  const aiText = document.getElementById('ai-content').textContent || '';
+
+  const { data, error } = await sb.from('segnalazioni').insert([{
+    tipo,
+    descrizione: desc,
+    lat: gpsLat,
+    lng: gpsLng,
+    photo: currentPhotoBase64 || null,
+    ai_analysis: aiText,
+    nome_segnalante: nome || null,
+    cognome_segnalante: cognome || null,
+    telefono_segnalante: telefono || null
+  }]).select().single();
+
+  btn.disabled = false;
+  btn.textContent = '🌿 Invia segnalazione';
+
+  if (error) {
+    alert('❌ Errore durante il salvataggio: ' + error.message);
+    return;
+  }
+
+  // Reset form
+  document.getElementById('tipo-rifiuto').value = '';
+  document.getElementById('descrizione').value = '';
+  document.getElementById('segnalante-nome').value = '';
+  document.getElementById('segnalante-cognome').value = '';
+  document.getElementById('segnalante-telefono').value = '';
+  document.getElementById('privacy-check').checked = false;
+  document.getElementById('gps-display').textContent = 'Posizione non rilevata';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.querySelector('.photo-upload .upload-icon').style.display = 'block';
+  document.querySelector('.photo-upload p').style.display = 'block';
+  document.getElementById('ai-box').classList.remove('show');
+  currentPhotoBase64 = null;
+  gpsLat = null; gpsLng = null;
+
+  document.getElementById('success-msg').classList.add('show');
+  setTimeout(() => document.getElementById('success-msg').classList.remove('show'), 4000);
+
+  await loadReports();
+  setTimeout(() => showView('map'), 2000);
+}
+
+// Costruisce il link mailto via JS per evitare offuscamento Cloudflare
+window.addEventListener('load', function() {
+  var btn = document.getElementById('mailto-btn');
+  if (btn) {
+    var u = 'madretna';
+    var d = 'gmail.com';
+    var s = 'Contatto%20dal%20sito%20MadrEtna';
+    btn.href = 'mailto:' + u + '@' + d + '?subject=' + s;
+  }
+});
+function openModal(idx) {
+  const r = reports[idx];
+  const modal = document.getElementById('modal');
+  const imgEl = document.getElementById('modal-img');
+
+  if (r.photo) {
+    imgEl.innerHTML = `<img src="${r.photo}" style="width:100%;max-height:250px;object-fit:cover;border-radius:14px 14px 0 0">`;
+  } else {
+    imgEl.innerHTML = TYPE_EMOJI[r.tipo] || '📦';
+    imgEl.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:80px;font-size:3rem;background:#2a2a2a;border-radius:14px 14px 0 0';
+  }
+
+  document.getElementById('modal-badge').innerHTML =
+    `<span class="report-badge ${BADGE_CLASSES[r.tipo] || 'badge-altro'}">${r.tipo || 'Altro'}</span>`;
+  document.getElementById('modal-title').textContent = r.descrizione ? r.descrizione.slice(0, 80) : 'Segnalazione';
+  document.getElementById('modal-desc').textContent = r.descrizione || '—';
+  document.getElementById('modal-coords').textContent = r.lat ? `📍 ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)} · 📅 ${r.date}` : `📅 ${r.date}`;
+
+  const modalAi = document.getElementById('modal-ai');
+  if (r.aiAnalysis) {
+    modalAi.innerHTML = `<div class="ai-label">🤖 Analisi AI</div>${r.aiAnalysis}`;
+    modalAi.style.display = 'block';
+  } else {
+    modalAi.style.display = 'none';
+  }
+
+  modal.classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal') || e.currentTarget?.classList?.contains('modal-close')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+
+// ============================================================
+// LOAD REPORTS FROM SUPABASE
+// ============================================================
+async function loadReports() {
+  const { data, error } = await sb
+    .from('segnalazioni')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) { console.error('Errore caricamento:', error); return; }
+
+  reports = (data || []).map(r => ({
+    id: r.id,
+    tipo: r.tipo,
+    descrizione: r.descrizione,
+    lat: r.lat,
+    lng: r.lng,
+    photo: r.photo,
+    aiAnalysis: r.ai_analysis,
+    date: new Date(r.created_at).toLocaleDateString('it-IT'),
+    dateRaw: r.created_at
+  }));
+
+  updateStats();
+  renderGrid();
+  renderMap();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', async () => {
+  initMap();
+  await loadReports();
+
+  // Realtime: aggiorna automaticamente quando altri utenti inviano segnalazioni
+  sb.channel('segnalazioni-changes')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'segnalazioni' }, async () => {
+      await loadReports();
+    })
+    .subscribe();
+});
+</script>
+
+<!-- INSTALL BANNER (Android) -->
+<div id="install-banner">
+  <p>🌋 Installa <strong>MadrEtna</strong> sulla tua schermata home!</p>
+  <button onclick="installApp()">Installa</button>
+  <button class="close-banner" onclick="document.getElementById('install-banner').style.display='none'">✕</button>
+</div>
+
+<script>
+// Registrazione Service Worker (PWA)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('✅ Service Worker registrato'))
+      .catch(e => console.warn('SW non registrato:', e));
+  });
+}
+
+// Banner "Aggiungi alla schermata home" per Android
+let deferredPrompt;
+window.addEve
