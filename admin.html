@@ -129,7 +129,7 @@ tr:hover td{background:#252525;}
         </div>
       </div>
       <div id="qr-container" style="flex-shrink:0;background:#fff;border-radius:12px;padding:.6rem;width:110px;height:110px;display:flex;align-items:center;justify-content:center">
-        <canvas id="qr-canvas" width="96" height="96"></canvas>
+        <div id="qr-div"></div>
       </div>
     </div>
 
@@ -213,11 +213,13 @@ document.addEventListener("DOMContentLoaded", function() {
   };
 
   // ── INSTALLAZIONE / QR CODE ───────────────────────────────
-  var appUrl = window.location.origin;
+  var appUrl = window.location.origin + window.location.pathname.replace(/\/admin\.html.*$/, '/index.html').replace(/\/$/, '/index.html');
+  // Pulisci: se finisce già con index.html ok, altrimenti aggiungi
+  if (!appUrl.endsWith('index.html')) appUrl = appUrl.replace(/\/[^/]*$/, '') + '/index.html';
   document.getElementById("app-url-display").textContent = appUrl;
 
-  // Genera QR code
-  new QRCode(document.getElementById("qr-canvas"), {
+  // Genera QR code nel div (non canvas)
+  new QRCode(document.getElementById("qr-div"), {
     text: appUrl,
     width: 96,
     height: 96,
