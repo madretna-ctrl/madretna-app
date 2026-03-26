@@ -115,9 +115,12 @@ tr:hover td{background:#252525;}
 <div id="admin-content">
   <!-- Banner benvenuto volontario (visibile solo se accesso da login.html) -->
   <div id="volontario-banner" style="display:none;background:#1a2a1a;border-bottom:2px solid var(--verde);padding:.6rem 1.5rem;">
-    <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;font-size:.85rem;">
+    <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;font-size:.85rem;">
       <span>🌿 Benvenuto/a <strong id="volontario-nome"></strong> — Area Volontari</span>
-      <a href="/madretna-app/login.html" style="color:var(--accent);text-decoration:none;font-size:.8rem">← Esci</a>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <button id="notif-btn" style="background:var(--verde);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;padding:.4rem .9rem;cursor:pointer;transition:background .2s">🔔 Attiva notifiche</button>
+        <a href="/madretna-app/login.html" style="color:var(--accent);text-decoration:none;font-size:.8rem">← Esci</a>
+      </div>
     </div>
   </div>
   <div class="main">
@@ -249,6 +252,63 @@ document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function(){ btn.textContent = "📋 Copia link"; }, 2000);
     });
   });
+
+  // ── NOTIFICHE PUSH (solo volontari) ──────────────────────
+  var VAPID_PUBLIC_KEY_ADMIN = 'BCntZCdPIFCJpcteamLqBNTCWrv7VmOBjLQOgiJTMxayXHD6Le_MjHVz0DsHlDpAwFmmyu1Pc9_S5TXJZR4T1OA';
+
+  function urlB64ToUint8Array(b64) {
+    var pad = '='.repeat((4 - b64.length % 4) % 4);
+    var raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+    return Uint8Array.from([...raw].map(function(c){ return c.charCodeAt(0); }));
+  }
+
+  var notifBtn = document.getElementById('notif-btn');
+  if (notifBtn) {
+    // Controlla se già attive
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready.then(function(reg) {
+        reg.pushManager.getSubscription().then(function(sub) {
+          if (sub) {
+            notifBtn.textContent = '✅ Notifiche attive';
+            notifBtn.style.background = 'var(--verde-chiaro)';
+            notifBtn.disabled = true;
+          }
+        });
+      });
+    }
+
+    notifBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      this.textContent = '⏳ Attivazione…';
+      try {
+        if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+          alert('Le notifiche non sono supportate su questo browser.');
+          this.disabled = false; this.textContent = '🔔 Attiva notifiche'; return;
+        }
+        if (Notification.permission === 'denied') {
+          alert('Le notifiche sono bloccate. Abilitale nelle impostazioni del browser.');
+          this.disabled = false; this.textContent = '🔔 Attiva notifiche'; return;
+        }
+        var reg = await navigator.serviceWorker.ready;
+        var sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY_ADMIN)
+        });
+        var subJson = sub.toJSON();
+        await sb.from('push_subscriptions').upsert([{
+          endpoint: subJson.endpoint,
+          p256dh: subJson.keys.p256dh,
+          auth: subJson.keys.auth
+        }], { onConflict: 'endpoint' });
+        this.textContent = '✅ Notifiche attive';
+        this.style.background = 'var(--verde-chiaro)';
+      } catch(e) {
+        alert('Errore: ' + e.message);
+        this.disabled = false;
+        this.textContent = '🔔 Attiva notifiche';
+      }
+    });
+  }
 
   // ── RILEVA RUOLO DA URL ───────────────────────────────────
   var params  = new URLSearchParams(window.location.search);

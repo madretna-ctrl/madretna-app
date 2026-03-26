@@ -1237,7 +1237,6 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/madretna-app/sw.js')
       .then(reg => {
         console.log('✅ Service Worker registrato');
-        // Richiedi iscrizione notifiche push dopo registrazione SW
         subscribeToPush(reg);
       })
       .catch(e => console.warn('SW non registrato:', e));
@@ -1255,25 +1254,18 @@ function urlBase64ToUint8Array(base64String) {
 
 async function subscribeToPush(reg) {
   try {
-    // Controlla se le notifiche sono supportate
     if (!('PushManager' in window)) return;
-
-    // Chiedi permesso solo se non già concesso o negato
     if (Notification.permission === 'denied') return;
-
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
-
-    // Salva la sottoscrizione su Supabase
     const subJson = sub.toJSON();
     await sb.from('push_subscriptions').upsert([{
       endpoint: subJson.endpoint,
       p256dh: subJson.keys.p256dh,
       auth: subJson.keys.auth
     }], { onConflict: 'endpoint' });
-
     console.log('✅ Push subscription registrata');
   } catch(e) {
     console.log('Push non attivate:', e.message);
