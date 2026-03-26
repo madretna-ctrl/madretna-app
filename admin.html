@@ -302,11 +302,11 @@ document.addEventListener("DOMContentLoaded", function() {
           applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY_ADMIN)
         });
         var subJson = sub.toJSON();
-        await sb.from('push_subscriptions').upsert([{
+        await sb.from('push_subscriptions').insert([{
           endpoint: subJson.endpoint,
           p256dh: subJson.keys.p256dh,
           auth: subJson.keys.auth
-        }], { onConflict: 'endpoint' });
+        }]).select().maybeSingle().catch(function(){});
         this.textContent = '✅ Notifiche attive';
         this.style.background = 'var(--verde-chiaro)';
       } catch(e) {

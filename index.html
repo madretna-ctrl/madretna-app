@@ -1305,11 +1305,12 @@ async function subscribeToPush(reg) {
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
     const subJson = sub.toJSON();
-    await sb.from('push_subscriptions').upsert([{
+    // Usa insert con onConflict ignore — non richiede permessi SELECT
+    await sb.from('push_subscriptions').insert([{
       endpoint: subJson.endpoint,
       p256dh: subJson.keys.p256dh,
       auth: subJson.keys.auth
-    }], { onConflict: 'endpoint' });
+    }]).select().maybeSingle().catch(() => {});
     console.log('✅ Push subscription registrata');
   } catch(e) {
     console.log('Push non attivate:', e.message);
