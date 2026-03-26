@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("welcome").style.display = "block";
       document.getElementById("welcome-name").textContent = "Ciao, Admin! 👋";
       setTimeout(function() {
-        window.location.href = '/madretna-app/admin.html';
+        window.location.href = '/madretna-app/admin.html?ruolo=admin';
       }, 1000);
       return;
     }
@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("welcome-name").textContent = "Ciao, " + res.data.nome + "! 👋";
       // Redirect automatico dopo 1.5 secondi passando il ruolo volontario
       setTimeout(function() {
-        window.location.href = '/madretna-app/admin.html?ruolo=volontario&nome=' + encodeURIComponent(res.data.nome + ' ' + res.data.cognome);
+        window.location.href = '/madretna-app/admin.html?ruolo=volontario&nome=' + encodeURIComponent(res.data.nome + ' ' + res.data.cognome) + '&comune=' + encodeURIComponent(res.data.comune_riferimento || '');
       }, 1500);
     } else if (esito === "ACCOUNT DISATTIVATO") {
       msg.className="msg err"; msg.textContent="⚠️ Il tuo account è stato disattivato. Contatta l'amministratore.";

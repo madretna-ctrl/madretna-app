@@ -106,6 +106,17 @@ tr:hover td{background:#252525;}
           <input type="email" id="v-email" placeholder="mario.rossi@email.it">
           <label>Telefono</label>
           <input type="text" id="v-telefono" placeholder="+39 333 1234567">
+          <label>Comune di riferimento</label>
+          <select id="v-comune">
+            <option value="">— Seleziona comune —</option>
+            <option>Adrano</option><option>Belpasso</option><option>Biancavilla</option>
+            <option>Bronte</option><option>Castiglione di Sicilia</option><option>Giarre</option>
+            <option>Linguaglossa</option><option>Maletto</option><option>Mascali</option>
+            <option>Milo</option><option>Nicolosi</option><option>Pedara</option>
+            <option>Piedimonte Etneo</option><option>Ragalna</option><option>Randazzo</option>
+            <option>Sant'Alfio</option><option>Santa Maria di Licodia</option>
+            <option>Trecastagni</option><option>Viagrande</option><option>Zafferana Etnea</option>
+          </select>
           <label>Password</label>
           <input type="password" id="v-password" placeholder="Minimo 8 caratteri">
           <button class="btn btn-verde" id="reg-btn">👤 Registra volontario</button>
@@ -135,7 +146,7 @@ tr:hover td{background:#252525;}
     <div class="card" style="padding:0;overflow:hidden;">
       <div class="overflow-x">
         <table>
-          <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Registrato il</th><th>Azioni</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th><th>Telefono</th><th>Comune</th><th>Stato</th><th>Registrato il</th><th>Azioni</th></tr></thead>
           <tbody id="vol-body"><tr><td colspan="6" class="empty"><div class="spinner"></div></td></tr></tbody>
         </table>
       </div>
@@ -198,6 +209,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var cognome = document.getElementById("v-cognome").value.trim();
     var email   = document.getElementById("v-email").value.trim().toLowerCase();
     var telefono= document.getElementById("v-telefono").value.trim();
+    var comune  = document.getElementById("v-comune").value;
     var pwd     = document.getElementById("v-password").value;
     var btn     = this;
 
@@ -209,7 +221,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var hash = await hashPwd(pwd);
     var res  = await sb.from("volontari").insert([{
-      nome: nome, cognome: cognome, email: email, telefono: telefono||null, password_hash: hash
+      nome: nome, cognome: cognome, email: email, telefono: telefono||null, comune_riferimento: comune||null, password_hash: hash
     }]);
 
     btn.disabled = false; btn.textContent = "👤 Registra volontario";
@@ -222,6 +234,7 @@ document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("v-cognome").value="";
       document.getElementById("v-email").value="";
       document.getElementById("v-telefono").value="";
+      document.getElementById("v-comune").value="";
       document.getElementById("v-password").value="";
       loadAll();
     }
@@ -248,7 +261,7 @@ document.addEventListener("DOMContentLoaded", function() {
         : "<span class='status-badge status-off'>Disattivato</span>";
       var toggleLabel = v.attivo ? "Disattiva" : "Riattiva";
       var toggleClass = v.attivo ? "action-btn" : "action-btn enable";
-      return "<tr><td>"+v.nome+"</td><td>"+v.cognome+"</td><td>"+v.email+"</td><td>"+(v.telefono||"—")+"</td><td>"+stato+"</td><td>"+date+"</td><td>"+
+      return "<tr><td>"+v.nome+"</td><td>"+v.cognome+"</td><td>"+v.email+"</td><td>"+(v.telefono||"—")+"</td><td>"+(v.comune_riferimento||"—")+"</td><td>"+stato+"</td><td>"+date+"</td><td>"+
         "<button class='"+toggleClass+"' data-id='"+v.id+"' data-attivo='"+v.attivo+"'>"+toggleLabel+"</button>"+
         "<button class='action-btn' data-del='"+v.id+"'>🗑 Elimina</button>"+
         "</td></tr>";

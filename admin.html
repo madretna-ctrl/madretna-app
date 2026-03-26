@@ -116,7 +116,11 @@ tr:hover td{background:#252525;}
   <!-- Banner benvenuto volontario (visibile solo se accesso da login.html) -->
   <div id="volontario-banner" style="display:none;background:#1a2a1a;border-bottom:2px solid var(--verde);padding:.6rem 1.5rem;">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;font-size:.85rem;">
-      <span>🌿 Benvenuto/a <strong id="volontario-nome"></strong> — Area Volontari</span>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <span>🌿 Benvenuto/a <strong id="volontario-nome"></strong></span>
+        <span id="comune-badge" style="background:#2d5a2755;border:1px solid var(--verde);border-radius:20px;padding:.15rem .7rem;font-size:.75rem;display:none">📍 <span id="comune-label"></span></span>
+        <button id="toggle-comune-btn" style="display:none;background:transparent;border:1px solid #444;border-radius:8px;color:var(--sabbia);font-family:'DM Sans',sans-serif;font-size:.75rem;padding:.3rem .7rem;cursor:pointer">🌍 Vedi tutte le segnalazioni</button>
+      </div>
       <div style="display:flex;align-items:center;gap:.75rem">
         <button id="notif-btn" style="background:var(--verde);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;padding:.4rem .9rem;cursor:pointer;transition:background .2s">🔔 Attiva notifiche</button>
         <a href="/madretna-app/login.html" style="color:var(--accent);text-decoration:none;font-size:.8rem">← Esci</a>
@@ -165,7 +169,10 @@ tr:hover td{background:#252525;}
     <!-- TABELLA -->
     <div class="toolbar-row">
       <div class="section-title" style="margin-bottom:0">🗑️ Gestione segnalazioni</div>
-      <button class="export-btn" id="export-btn">📥 Esporta Excel</button>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <button class="export-btn" id="export-btn">📥 Esporta Excel</button>
+        <button class="export-btn" id="clear-log-btn" style="background:#3a1a1a;border:1px solid #c0392b55;color:#e74c3c" title="Elimina tutti i log di accesso">🧹 Pulisci log accessi</button>
+      </div>
     </div>
     <div class="table-wrap">
       <div class="table-toolbar">
@@ -314,21 +321,55 @@ document.addEventListener("DOMContentLoaded", function() {
   var params  = new URLSearchParams(window.location.search);
   var ruolo   = params.get('ruolo');
   var nomeVol = params.get('nome');
+  var comuneVol = params.get('comune') ? decodeURIComponent(params.get('comune')) : '';
   var isVolontario = ruolo === 'volontario';
+  var isAdmin = ruolo === 'admin';
+  var mostraTuttiComuni = false;
 
-  if (isVolontario) {
-    // Nascondi login screen e mostra direttamente admin
+  if (isAdmin || isVolontario) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
-    // Mostra banner benvenuto
-    document.getElementById('volontario-banner').style.display = 'block';
-    if (nomeVol) document.getElementById('volontario-nome').textContent = decodeURIComponent(nomeVol);
-    // Nascondi link volontari
-    var linkVol = document.getElementById('link-volontari');
-    if (linkVol) linkVol.style.display = 'none';
     initMap();
     loadData();
   }
+
+  if (isVolontario) {
+    document.getElementById('volontario-banner').style.display = 'block';
+    if (nomeVol) document.getElementById('volontario-nome').textContent = decodeURIComponent(nomeVol);
+    var linkVol = document.getElementById('link-volontari');
+    if (linkVol) linkVol.style.display = 'none';
+    // Nascondi pulsante pulizia log ai volontari
+    var clearLogBtn = document.getElementById('clear-log-btn');
+    if (clearLogBtn) clearLogBtn.style.display = 'none';
+    // Mostra badge comune e pulsante filtro
+    if (comuneVol) {
+      var badge = document.getElementById('comune-badge');
+      var label = document.getElementById('comune-label');
+      var toggleBtn = document.getElementById('toggle-comune-btn');
+      if (badge) badge.style.display = 'inline-flex';
+      if (label) label.textContent = comuneVol;
+      if (toggleBtn) {
+        toggleBtn.style.display = 'inline-block';
+        toggleBtn.addEventListener('click', function() {
+          mostraTuttiComuni = !mostraTuttiComuni;
+          this.textContent = mostraTuttiComuni ? '📍 Solo il mio comune' : '🌍 Vedi tutte le segnalazioni';
+          renderTable();
+          renderMap();
+        });
+      }
+    }
+  }
+
+  // ── PULIZIA LOG ────────────────────────────────────────────
+  document.getElementById('clear-log-btn').addEventListener('click', async function() {
+    if (!confirm('Eliminare tutti i log di accesso? L\'operazione è irreversibile.')) return;
+    var btn = this;
+    btn.disabled = true; btn.textContent = '⏳ Pulizia…';
+    var res = await sbAdmin.from('access_log').delete().neq('id', 0);
+    btn.disabled = false; btn.textContent = '🧹 Pulisci log accessi';
+    if (res.error) showToast('Errore: ' + res.error.message, true);
+    else showToast('✅ Log accessi eliminati');
+  });
 
   // ── LOGIN ──────────────────────────────────────────────────
   function doLogin() {
@@ -362,11 +403,20 @@ document.addEventListener("DOMContentLoaded", function() {
     }).addTo(adminMap);
   }
 
+  function getFilteredReports() {
+    if (isVolontario && comuneVol && !mostraTuttiComuni) {
+      return allReports.filter(function(r) {
+        return (r.comune || '').toLowerCase() === comuneVol.toLowerCase();
+      });
+    }
+    return allReports;
+  }
+
   function renderMap() {
     if (!adminMap) return;
     mapMarkers.forEach(function(m){ adminMap.removeLayer(m); });
     mapMarkers = [];
-    allReports.forEach(function(r) {
+    getFilteredReports().forEach(function(r) {
       if (!r.lat || !r.lng) return;
       var color = TYPE_COLOR[r.tipo] || "#27ae60";
       var emoji = TYPE_EMOJI[r.tipo] || "📦";
@@ -407,7 +457,7 @@ document.addEventListener("DOMContentLoaded", function() {
         await new Promise(function(res){ setTimeout(res, 300); });
       }
     }
-    renderTable(allReports);
+    renderTable();
     renderMap();
   }
 
@@ -418,7 +468,7 @@ document.addEventListener("DOMContentLoaded", function() {
       if (result.error) { showToast("Errore: "+result.error.message, true); return; }
       allReports = result.data || [];
       renderStats();
-      renderTable(allReports);
+      renderTable();
       renderMap();
       // Nascondi overlay caricamento mappa
       var ml = document.getElementById('admin-map-loading');
@@ -445,13 +495,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // ── TABLE ──────────────────────────────────────────────────
   function renderTable(data) {
+    var filtered = data !== undefined ? data : getFilteredReports();
     var tbody = document.getElementById("table-body");
-    document.getElementById("table-count").textContent = data.length+" segnalazion"+(data.length===1?"e":"i");
-    if (!data.length) {
+    document.getElementById("table-count").textContent = filtered.length+" segnalazion"+(filtered.length===1?"e":"i");
+    if (!filtered.length) {
       tbody.innerHTML = "<tr class=\"empty-row\"><td colspan=\"9\">🌲 Nessuna segnalazione trovata</td></tr>";
       return;
     }
-    tbody.innerHTML = data.map(function(r) {
+    tbody.innerHTML = filtered.map(function(r) {
       var date = new Date(r.created_at).toLocaleDateString("it-IT");
       var img = r.photo ? "<img class=\"thumb\" src=\""+r.photo+"\" alt=\"foto\">" : "<div class=\"no-photo\">📦</div>";
       var desc = r.descrizione ? r.descrizione.slice(0,50)+(r.descrizione.length>50?"…":"") : "—";

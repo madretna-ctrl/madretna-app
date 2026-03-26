@@ -106,6 +106,16 @@
     opacity: 1;
   }
   .nav-tab:hover { opacity: 1; }
+  .segnala-tab {
+    background: var(--verde) !important;
+    border-color: var(--verde-chiaro) !important;
+    color: #fff !important;
+    opacity: 1 !important;
+    font-size: 0.95rem !important;
+    padding: 0.5rem 1.3rem !important;
+    box-shadow: 0 2px 8px rgba(45,90,39,0.4);
+  }
+  .segnala-tab:hover { background: var(--verde-chiaro) !important; }
 
   /* STATS BAR */
   .stats-bar {
@@ -629,7 +639,8 @@
     </div>
     <nav class="nav-tabs">
       <button class="nav-tab active" onclick="showView('map')">🗺 Mappa</button>
-      <button class="nav-tab" onclick="showView('report')">📍 Segnala</button>
+      <button class="nav-tab segnala-tab" onclick="showView('report')">📍 Segnala</button>
+      <button class="nav-tab" id="install-tab" onclick="installApp()" style="display:none">📲 Installa</button>
       <a href="/madretna-app/login.html" class="nav-tab" style="text-decoration:none">🔐 Accedi</a>
     </nav>
   </div>
@@ -749,6 +760,21 @@
         <div id="gps-source" style="font-size:0.75rem;margin-top:0.4rem;opacity:0.6;display:none"></div>
         <input type="hidden" id="gps-lat">
         <input type="hidden" id="gps-lng">
+      </div>
+
+      <!-- Campo comune: visibile solo quando EXIF non disponibile -->
+      <div class="form-group" id="comune-group" style="display:none">
+        <label>🏘 Comune del ritrovamento</label>
+        <select id="comune-manuale">
+          <option value="">— Seleziona comune —</option>
+          <option>Adrano</option><option>Belpasso</option><option>Biancavilla</option>
+          <option>Bronte</option><option>Castiglione di Sicilia</option><option>Giarre</option>
+          <option>Linguaglossa</option><option>Maletto</option><option>Mascali</option>
+          <option>Milo</option><option>Nicolosi</option><option>Pedara</option>
+          <option>Piedimonte Etneo</option><option>Ragalna</option><option>Randazzo</option>
+          <option>Sant'Alfio</option><option>Santa Maria di Licodia</option>
+          <option>Trecastagni</option><option>Viagrande</option><option>Zafferana Etnea</option>
+        </select>
       </div>
 
       <div class="ai-box" id="ai-box">
@@ -991,6 +1017,9 @@ async function extractExifGPS(file) {
       gpsSource.textContent  = '📷 Coordinate estratte dai metadati della foto';
       gpsSource.style.display = 'block';
       gpsSource.style.color   = 'var(--accent)';
+      // Nascondi campo comune manuale (le coordinate arrivano da EXIF)
+      document.getElementById('comune-group').style.display = 'none';
+      document.getElementById('comune-manuale').value = '';
 
       // Disabilita pulsante GPS manuale
       gpsBtn.disabled = true;
@@ -1013,6 +1042,8 @@ function noExifGPS(gpsBtn, gpsSource) {
   gpsSource.textContent  = '⚠️ Non è possibile risalire alle coordinate GPS per questa foto, per favore in descrizione inserisci indicazioni sul luogo del rinvenimento.';
   gpsSource.style.display = 'block';
   gpsSource.style.color   = 'var(--arancio)';
+  // Mostra il campo comune manuale
+  document.getElementById('comune-group').style.display = 'block';
 }
 
 // ============================================================
@@ -1070,6 +1101,7 @@ async function submitReport() {
   const nome = document.getElementById('segnalante-nome').value.trim();
   const cognome = document.getElementById('segnalante-cognome').value.trim();
   const telefono = document.getElementById('segnalante-telefono').value.trim();
+  const comuneManuale = document.getElementById('comune-manuale').value;
   const privacy = document.getElementById('privacy-check').checked;
   const btn = document.getElementById('submit-btn');
 
@@ -1085,6 +1117,16 @@ async function submitReport() {
 
   const aiText = document.getElementById('ai-content').textContent || '';
 
+  // Comune: da selezione manuale oppure da reverse geocoding se coordinate EXIF disponibili
+  let comuneFinale = comuneManuale || null;
+  if (gpsLat && gpsLng && !comuneManuale) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${gpsLat}&lon=${gpsLng}&format=json&accept-language=it`, { headers: { 'User-Agent': 'MadrEtna/1.0' } });
+      const geo = await res.json();
+      comuneFinale = geo.address?.town || geo.address?.village || geo.address?.municipality || geo.address?.city || null;
+    } catch(e) {}
+  }
+
   const { data, error } = await sb.from('segnalazioni').insert([{
     tipo,
     descrizione: desc,
@@ -1092,6 +1134,7 @@ async function submitReport() {
     lng: gpsLng,
     photo: currentPhotoBase64 || null,
     ai_analysis: aiText,
+    comune: comuneFinale,
     nome_segnalante: nome || null,
     cognome_segnalante: cognome || null,
     telefono_segnalante: telefono || null
@@ -1113,7 +1156,8 @@ async function submitReport() {
   document.getElementById('segnalante-telefono').value = '';
   document.getElementById('privacy-check').checked = false;
   document.getElementById('gps-display').textContent = 'Posizione non rilevata';
-  document.getElementById('gps-source').style.display = 'none';
+  document.getElementById('comune-manuale').value = '';
+  document.getElementById('comune-group').style.display = 'none';
   const gpsBtn = document.getElementById('gps-btn');
   gpsBtn.disabled = false;
   gpsBtn.style.opacity = '1';
@@ -1274,4 +1318,26 @@ async function subscribeToPush(reg) {
 
 // Banner "Aggiungi alla schermata home" per Android
 let deferredPrompt;
-window.addEve
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const installTab = document.getElementById('install-tab');
+  if (installTab) installTab.style.display = 'inline-flex';
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.style.display = 'flex';
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    const installTab = document.getElementById('install-tab');
+    if (installTab) installTab.style.display = 'none';
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.style.display = 'none';
+  });
+}
+</script>
+</body>
+</html>
