@@ -36,7 +36,7 @@ header{background:#fff;border-bottom:3px solid var(--verde);padding:0 1.5rem;box
 .stat-label{font-size:.75rem;opacity:.5;text-transform:uppercase;letter-spacing:.08em;}
 .stat-val{font-family:"Playfair Display",serif;font-size:2rem;font-weight:900;color:var(--accent);line-height:1.2;}
 .section-title{font-family:"Playfair Display",serif;font-size:1.3rem;font-weight:900;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
-.map-container{border-radius:16px;overflow:hidden;border:2px solid #333;margin-bottom:2rem;}
+.map-container{border-radius:16px;overflow:hidden;border:2px solid #333;margin-bottom:2rem;position:relative;}
 .install-card{background:#1a2a1a;border:1px solid var(--verde);border-radius:14px;padding:1.2rem 1.5rem;margin-bottom:1.5rem;display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;}
 #admin-map{height:400px;width:100%;}
 .toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;}
@@ -151,7 +151,13 @@ tr:hover td{background:#252525;}
 
     <!-- MAPPA -->
     <div class="section-title">🗺 Mappa segnalazioni</div>
-    <div class="map-container"><div id="admin-map"></div></div>
+    <div class="map-container">
+      <div id="admin-map"></div>
+      <div id="admin-map-loading" style="position:absolute;inset:0;background:rgba(26,26,26,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;z-index:999;pointer-events:none;border-radius:14px;">
+        <div style="width:28px;height:28px;border:3px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>
+        <span style="font-size:.85rem;color:var(--sabbia);opacity:.85">⏳ Sto caricando i dati…</span>
+      </div>
+    </div>
 
     <!-- TABELLA -->
     <div class="toolbar-row">
@@ -354,6 +360,9 @@ document.addEventListener("DOMContentLoaded", function() {
       renderStats();
       renderTable(allReports);
       renderMap();
+      // Nascondi overlay caricamento mappa
+      var ml = document.getElementById('admin-map-loading');
+      if (ml) ml.style.display = 'none';
       enrichWithComuni();
     } catch(e) { showToast("Errore connessione", true); }
   }

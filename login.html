@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MadrEtna — Accesso Volontari</title>
+<title>MadrEtna — Accesso</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--verde:#2d5a27;--verde-chiaro:#4a8c3f;--lava:#1a1a1a;--sabbia:#f4ede0;--accent:#8bc34a;--rosso:#c0392b;}
@@ -47,9 +47,9 @@ input:focus{outline:none;border-color:var(--verde-chiaro);}
     <!-- LOGIN FORM -->
     <div id="login-form">
       <div class="card-icon">🌿</div>
-      <div class="card-title">Area Volontari</div>
-      <div class="card-sub">Accedi con le tue credenziali MadrEtna</div>
-      <label>Email</label>
+      <div class="card-title">Accesso MadrEtna</div>
+      <div class="card-sub">Inserisci le tue credenziali</div>
+      <label>Email / Username admin</label>
       <input type="email" id="email" placeholder="la-tua@email.it" autocomplete="email">
       <label>Password</label>
       <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
@@ -90,16 +90,30 @@ document.addEventListener("DOMContentLoaded", function() {
     } catch(e) { return "—"; }
   }
 
+  var ADMIN_PASSWORD = "parcoetna00";
+
   document.getElementById("login-btn").addEventListener("click", async function() {
     var email = document.getElementById("email").value.trim().toLowerCase();
     var pwd   = document.getElementById("password").value;
     var msg   = document.getElementById("msg");
     var btn   = this;
 
-    if (!email||!pwd) { msg.className="msg err"; msg.textContent="Compila email e password"; return; }
+    if (!email||!pwd) { msg.className="msg err"; msg.textContent="Compila tutti i campi"; return; }
 
     btn.disabled = true; btn.textContent = "⏳ Accesso…";
     msg.className="msg"; msg.textContent="";
+
+    // ── Controlla prima se è l'admin principale ──
+    if (pwd === ADMIN_PASSWORD && (email === "admin" || email === "admin@madretna.it" || email === "madretna@gmail.com")) {
+      btn.disabled = false; btn.textContent = "Accedi";
+      document.getElementById("login-form").style.display = "none";
+      document.getElementById("welcome").style.display = "block";
+      document.getElementById("welcome-name").textContent = "Ciao, Admin! 👋";
+      setTimeout(function() {
+        window.location.href = '/madretna-app/admin.html';
+      }, 1000);
+      return;
+    }
 
     var hash = await hashPwd(pwd);
     var ip   = await getIP();
