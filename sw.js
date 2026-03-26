@@ -44,3 +44,29 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(e.request))
   );
 });
+
+// ── PUSH NOTIFICATIONS ──────────────────────────────────────
+self.addEventListener('push', function(event) {
+  var data = {};
+  try { data = event.data.json(); } catch(e) {
+    data = { title: 'MadrEtna', body: 'Nuova segnalazione ricevuta' };
+  }
+  var options = {
+    body: data.body || "Nuova segnalazione nel Parco dell'Etna",
+    icon: '/madretna-app/icon-192x192.png',
+    badge: '/madretna-app/icon-96x96.png',
+    vibrate: [200, 100, 200],
+    tag: 'madretna-segnalazione',
+    renotify: true,
+    data: { url: data.url || '/madretna-app/admin.html' }
+  };
+  event.waitUntil(
+    self.registration.showNotification(data.title || '🌋 MadrEtna — Nuova segnalazione', options)
+  );
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  var url = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/madretna-app/admin.html';
+  event.waitUntil(clients.openWindow(url));
+});

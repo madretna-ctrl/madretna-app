@@ -1226,9 +1226,49 @@ window.addEventListener('load', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/madretna-app/sw.js')
-      .then(() => console.log('✅ Service Worker registrato'))
+      .then(reg => {
+        console.log('✅ Service Worker registrato');
+        // Richiedi iscrizione notifiche push dopo registrazione SW
+        subscribeToPush(reg);
+      })
       .catch(e => console.warn('SW non registrato:', e));
   });
+}
+
+const VAPID_PUBLIC_KEY = 'BCntZCdPIFCJpcteamLqBNTCWrv7VmOBjLQOgiJTMxayXHD6Le_MjHVz0DsHlDpAwFmmyu1Pc9_S5TXJZR4T1OA';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function subscribeToPush(reg) {
+  try {
+    // Controlla se le notifiche sono supportate
+    if (!('PushManager' in window)) return;
+
+    // Chiedi permesso solo se non già concesso o negato
+    if (Notification.permission === 'denied') return;
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    // Salva la sottoscrizione su Supabase
+    const subJson = sub.toJSON();
+    await sb.from('push_subscriptions').upsert([{
+      endpoint: subJson.endpoint,
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth
+    }], { onConflict: 'endpoint' });
+
+    console.log('✅ Push subscription registrata');
+  } catch(e) {
+    console.log('Push non attivate:', e.message);
+  }
 }
 
 // Banner "Aggiungi alla schermata home" per Android

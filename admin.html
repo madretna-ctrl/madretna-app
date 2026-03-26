@@ -94,7 +94,7 @@ tr:hover td{background:#252525;}
       <span class="admin-badge">Admin</span>
     </div>
     <div style="display:flex;align-items:center;gap:1rem">
-      <a href="/madretna-app/volunteers.html" style="color:var(--verde);font-size:.82rem;text-decoration:none;font-weight:500">👥 Volontari</a>
+      <a href="/madretna-app/volunteers.html" id="link-volontari" style="color:var(--verde);font-size:.82rem;text-decoration:none;font-weight:500">👥 Volontari</a>
       <a href="/madretna-app/index.html" style="color:var(--verde);font-size:.82rem;text-decoration:none;font-weight:500">← Torna all'app</a>
       <button class="logout-btn" onclick="logout()">Esci</button>
     </div>
@@ -113,6 +113,13 @@ tr:hover td{background:#252525;}
 </div>
 
 <div id="admin-content">
+  <!-- Banner benvenuto volontario (visibile solo se accesso da login.html) -->
+  <div id="volontario-banner" style="display:none;background:#1a2a1a;border-bottom:2px solid var(--verde);padding:.6rem 1.5rem;">
+    <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;font-size:.85rem;">
+      <span>🌿 Benvenuto/a <strong id="volontario-nome"></strong> — Area Volontari</span>
+      <a href="/madretna-app/login.html" style="color:var(--accent);text-decoration:none;font-size:.8rem">← Esci</a>
+    </div>
+  </div>
   <div class="main">
 
     <!-- INSTALLAZIONE APP -->
@@ -236,6 +243,26 @@ document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function(){ btn.textContent = "📋 Copia link"; }, 2000);
     });
   });
+
+  // ── RILEVA RUOLO DA URL ───────────────────────────────────
+  var params  = new URLSearchParams(window.location.search);
+  var ruolo   = params.get('ruolo');
+  var nomeVol = params.get('nome');
+  var isVolontario = ruolo === 'volontario';
+
+  if (isVolontario) {
+    // Nascondi login screen e mostra direttamente admin
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    // Mostra banner benvenuto
+    document.getElementById('volontario-banner').style.display = 'block';
+    if (nomeVol) document.getElementById('volontario-nome').textContent = decodeURIComponent(nomeVol);
+    // Nascondi link volontari
+    var linkVol = document.getElementById('link-volontari');
+    if (linkVol) linkVol.style.display = 'none';
+    initMap();
+    loadData();
+  }
 
   // ── LOGIN ──────────────────────────────────────────────────
   function doLogin() {
