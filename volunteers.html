@@ -141,6 +141,20 @@ tr:hover td{background:#252525;}
       </div>
     </div>
 
+    <!-- DISPOSITIVI PUSH -->
+    <div class="section-title">📲 Dispositivi registrati per le notifiche</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="overflow-x">
+        <table>
+          <thead><tr><th>#</th><th>Dispositivo / Browser</th><th>Registrato il</th><th>Azione</th></tr></thead>
+          <tbody id="devices-body"><tr><td colspan="4" class="empty"><div class="spinner"></div></td></tr></tbody>
+        </table>
+      </div>
+      <div style="padding:.75rem 1rem;border-top:1px solid #2a2a2a;font-size:.78rem;opacity:.5">
+        I dispositivi vengono registrati automaticamente quando un volontario apre l'app e accetta le notifiche.
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -217,6 +231,7 @@ document.addEventListener("DOMContentLoaded", function() {
   async function loadAll() {
     loadVolontari();
     loadLog();
+    loadDevices();
   }
 
   // ── LISTA VOLONTARI ──────────────────────────────────────
@@ -269,6 +284,41 @@ document.addEventListener("DOMContentLoaded", function() {
       var cls = l.esito === "OK" ? "log-ok" : "log-fail";
       return "<tr class='log-table'><td>"+dt+"</td><td>"+(l.nome_completo||l.email||"—")+"</td><td class='"+cls+"'>"+l.esito+"</td></tr>";
     }).join("");
+  }
+
+  // ── DISPOSITIVI PUSH ─────────────────────────────────────
+  async function loadDevices() {
+    var res = await sb.from("push_subscriptions").select("*").order("created_at", {ascending: false});
+    var tbody = document.getElementById("devices-body");
+    if (res.error || !res.data || !res.data.length) {
+      tbody.innerHTML = "<tr><td colspan='4' class='empty'>Nessun dispositivo registrato</td></tr>"; return;
+    }
+    tbody.innerHTML = res.data.map(function(d, i) {
+      var date = new Date(d.created_at).toLocaleString("it-IT");
+      // Prova a estrarre info leggibili dall'endpoint
+      var endpointShort = d.endpoint.length > 60 ? d.endpoint.slice(0, 60) + "…" : d.endpoint;
+      var browser = "—";
+      if (d.endpoint.includes("fcm.googleapis")) browser = "🤖 Android / Chrome";
+      else if (d.endpoint.includes("push.apple")) browser = "🍎 iPhone / Safari";
+      else if (d.endpoint.includes("mozilla")) browser = "🦊 Firefox";
+      else if (d.endpoint.includes("windows")) browser = "🪟 Edge / Windows";
+      else browser = "🌐 Browser";
+      return "<tr>" +
+        "<td style='opacity:.5'>" + (i + 1) + "</td>" +
+        "<td><span style='font-size:.82rem'>" + browser + "</span><br><span style='font-family:monospace;font-size:.68rem;opacity:.4'>" + endpointShort + "</span></td>" +
+        "<td style='font-size:.8rem'>" + date + "</td>" +
+        "<td><button class='action-btn' data-del-device='" + d.id + "'>🗑 Rimuovi</button></td>" +
+        "</tr>";
+    }).join("");
+
+    tbody.querySelectorAll("[data-del-device]").forEach(function(btn) {
+      btn.addEventListener("click", async function() {
+        if (!confirm("Rimuovere questo dispositivo dalla lista notifiche?")) return;
+        await sb.from("push_subscriptions").delete().eq("id", this.getAttribute("data-del-device"));
+        showToast("✅ Dispositivo rimosso");
+        loadDevices();
+      });
+    });
   }
 
   // ── ESPORTA LOG TXT ──────────────────────────────────────
