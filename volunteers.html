@@ -171,6 +171,23 @@ tr:hover td{background:#252525;}
 
 <div class="toast" id="toast"></div>
 
+<!-- MODALE RESET PASSWORD -->
+<div id="pwd-modal" style="display:none;position:fixed;inset:0;background:#000b;z-index:5000;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:#1e1e1e;border:1px solid #444;border-radius:16px;padding:2rem;max-width:380px;width:100%;text-align:center;animation:fadeIn .25s ease">
+    <div style="font-size:2rem;margin-bottom:.75rem">🔑</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:900;margin-bottom:.3rem">Password reimpostata</div>
+    <div style="font-size:.85rem;opacity:.6;margin-bottom:1.5rem">Comunica questa password temporanea a <strong id="pwd-modal-nome"></strong></div>
+    <div style="background:#2a2a2a;border:1px solid var(--verde);border-radius:10px;padding:1rem;margin-bottom:1.2rem">
+      <div style="font-family:monospace;font-size:1.6rem;font-weight:700;letter-spacing:.15em;color:var(--accent)" id="pwd-modal-pwd"></div>
+    </div>
+    <div style="font-size:.78rem;opacity:.5;margin-bottom:1.2rem">Il volontario dovrà usare questa password al prossimo accesso</div>
+    <div style="display:flex;gap:.75rem;justify-content:center">
+      <button id="pwd-modal-copy" style="background:var(--verde);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;padding:.6rem 1.3rem;cursor:pointer">📋 Copia</button>
+      <button id="pwd-modal-close" style="background:#2a2a2a;border:1px solid #444;border-radius:8px;color:var(--sabbia);font-family:'DM Sans',sans-serif;font-size:.9rem;padding:.6rem 1.3rem;cursor:pointer">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
@@ -263,6 +280,7 @@ document.addEventListener("DOMContentLoaded", function() {
       var toggleClass = v.attivo ? "action-btn" : "action-btn enable";
       return "<tr><td>"+v.nome+"</td><td>"+v.cognome+"</td><td>"+v.email+"</td><td>"+(v.telefono||"—")+"</td><td>"+(v.comune_riferimento||"—")+"</td><td>"+stato+"</td><td>"+date+"</td><td>"+
         "<button class='"+toggleClass+"' data-id='"+v.id+"' data-attivo='"+v.attivo+"'>"+toggleLabel+"</button>"+
+        "<button class='action-btn' data-reset='"+v.id+"' data-nome='"+v.nome+" "+v.cognome+"'>🔑 Reset pwd</button>"+
         "<button class='action-btn' data-del='"+v.id+"'>🗑 Elimina</button>"+
         "</td></tr>";
     }).join("");
@@ -275,6 +293,24 @@ document.addEventListener("DOMContentLoaded", function() {
         loadVolontari();
       });
     });
+    tbody.querySelectorAll("[data-reset]").forEach(function(btn) {
+      btn.addEventListener("click", async function() {
+        var id   = this.getAttribute("data-reset");
+        var nome = this.getAttribute("data-nome");
+        if (!confirm("Reimpostare la password per " + nome + "?")) return;
+
+        // Genera password temporanea leggibile (8 caratteri)
+        var tempPwd = generateTempPassword();
+        var hash    = await hashPwd(tempPwd);
+
+        var res = await sb.from("volontari").update({ password_hash: hash }).eq("id", id);
+        if (res.error) { showToast("Errore: " + res.error.message, true); return; }
+
+        // Mostra la password temporanea all'admin
+        showPwdModal(nome, tempPwd);
+      });
+    });
+
     tbody.querySelectorAll("[data-del]").forEach(function(btn) {
       btn.addEventListener("click", async function() {
         if (!confirm("Eliminare definitivamente questo volontario?")) return;
@@ -284,6 +320,35 @@ document.addEventListener("DOMContentLoaded", function() {
       });
     });
   }
+
+  // ── GENERA PASSWORD TEMPORANEA ───────────────────────────
+  function generateTempPassword() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    var pwd = '';
+    for (var i = 0; i < 8; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pwd;
+  }
+
+  function showPwdModal(nome, pwd) {
+    document.getElementById('pwd-modal-nome').textContent = nome;
+    document.getElementById('pwd-modal-pwd').textContent  = pwd;
+    var modal = document.getElementById('pwd-modal');
+    modal.style.display = 'flex';
+  }
+
+  document.getElementById('pwd-modal-close').addEventListener('click', function() {
+    document.getElementById('pwd-modal').style.display = 'none';
+  });
+  document.getElementById('pwd-modal-copy').addEventListener('click', function() {
+    var pwd = document.getElementById('pwd-modal-pwd').textContent;
+    navigator.clipboard.writeText(pwd).then(function() {
+      var btn = document.getElementById('pwd-modal-copy');
+      btn.textContent = '✅ Copiata!';
+      setTimeout(function(){ btn.textContent = '📋 Copia'; }, 2000);
+    });
+  });
 
   // ── LOG ACCESSI ──────────────────────────────────────────
   async function loadLog() {
