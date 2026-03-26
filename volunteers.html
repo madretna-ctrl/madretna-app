@@ -147,7 +147,7 @@ tr:hover td{background:#252525;}
       <div class="overflow-x">
         <table>
           <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th><th>Telefono</th><th>Comune</th><th>Stato</th><th>Registrato il</th><th>Azioni</th></tr></thead>
-          <tbody id="vol-body"><tr><td colspan="6" class="empty"><div class="spinner"></div></td></tr></tbody>
+          <tbody id="vol-body"><tr><td colspan="8" class="empty"><div class="spinner"></div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -269,7 +269,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var res = await sb.from("volontari").select("*").order("created_at",{ascending:false});
     var tbody = document.getElementById("vol-body");
     if (res.error||!res.data.length) {
-      tbody.innerHTML = "<tr><td colspan='6' class='empty'>Nessun volontario registrato</td></tr>"; return;
+      tbody.innerHTML = "<tr><td colspan='8' class='empty'>Nessun volontario registrato</td></tr>"; return;
     }
     tbody.innerHTML = res.data.map(function(v) {
       var date = new Date(v.created_at).toLocaleDateString("it-IT");
