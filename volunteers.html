@@ -324,11 +324,11 @@ document.addEventListener("DOMContentLoaded", function() {
   // ── NOTIFICA DI PROVA ────────────────────────────────────
   async function sendTestNotification(deviceId) {
     try {
-      // Recupera il dispositivo specifico
       var res = await sb.from("push_subscriptions").select("*").eq("id", deviceId).single();
-      if (res.error || !res.data) return false;
+      if (res.error || !res.data) {
+        showToast("❌ Dispositivo non trovato nel DB", true); return false;
+      }
 
-      // Chiama la Edge Function passando un payload di test
       var fnRes = await fetch(
         "https://yonlwnggyzfshkypdsus.supabase.co/functions/v1/notify-push",
         {
@@ -338,17 +338,26 @@ document.addEventListener("DOMContentLoaded", function() {
             "Authorization": "Bearer " + SB_SVC
           },
           body: JSON.stringify({
-            record: {
-              tipo: "🧪 Notifica di prova",
-              descrizione: "Test inviato dal pannello admin MadrEtna"
-            },
-            test_device: res.data  // passa solo questo dispositivo
+            record: { tipo: "Test", descrizione: "Notifica di prova" },
+            test_device: res.data
           })
         }
       );
-      return fnRes.ok;
+
+      var json = {};
+      try { json = await fnRes.json(); } catch(e) {}
+
+      if (!fnRes.ok) {
+        showToast("❌ Errore Edge Function: " + (json.error || fnRes.status), true);
+        return false;
+      }
+      if (json.sent === 0) {
+        showToast("⚠️ Funzione raggiunta ma push non inviata (controlla VAPID)", true);
+        return false;
+      }
+      return true;
     } catch(e) {
-      console.error("Test push error:", e);
+      showToast("❌ Errore di rete: " + e.message, true);
       return false;
     }
   }
