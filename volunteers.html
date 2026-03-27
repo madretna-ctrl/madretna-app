@@ -198,8 +198,16 @@ document.addEventListener("DOMContentLoaded", function() {
   var sb           = supabase.createClient(SB_URL, SB_SVC);
 
   // ── LOGIN ────────────────────────────────────────────────
+  // Controlla se già autenticato in questa sessione
+  if (sessionStorage.getItem('madretna_vol_admin') === 'true') {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("main-content").style.display = "block";
+    loadAll();
+  }
+
   function doLogin() {
     if (document.getElementById("pwd-input").value === ADMIN_PWD) {
+      sessionStorage.setItem('madretna_vol_admin', 'true');
       document.getElementById("login-screen").style.display = "none";
       document.getElementById("main-content").style.display = "block";
       loadAll();
@@ -288,9 +296,11 @@ document.addEventListener("DOMContentLoaded", function() {
     tbody.querySelectorAll("[data-id]").forEach(function(btn) {
       btn.addEventListener("click", async function() {
         var attivo = this.getAttribute("data-attivo") === "true";
+        var row = this.closest("tr");
+        if (row) row.style.opacity = "0.4";
         await sb.from("volontari").update({attivo: !attivo}).eq("id", this.getAttribute("data-id"));
         showToast(attivo ? "Volontario disattivato" : "Volontario riattivato");
-        loadVolontari();
+        await loadVolontari();
       });
     });
     tbody.querySelectorAll("[data-reset]").forEach(function(btn) {
@@ -298,15 +308,10 @@ document.addEventListener("DOMContentLoaded", function() {
         var id   = this.getAttribute("data-reset");
         var nome = this.getAttribute("data-nome");
         if (!confirm("Reimpostare la password per " + nome + "?")) return;
-
-        // Genera password temporanea leggibile (8 caratteri)
         var tempPwd = generateTempPassword();
         var hash    = await hashPwd(tempPwd);
-
         var res = await sb.from("volontari").update({ password_hash: hash }).eq("id", id);
         if (res.error) { showToast("Errore: " + res.error.message, true); return; }
-
-        // Mostra la password temporanea all'admin
         showPwdModal(nome, tempPwd);
       });
     });
@@ -314,9 +319,11 @@ document.addEventListener("DOMContentLoaded", function() {
     tbody.querySelectorAll("[data-del]").forEach(function(btn) {
       btn.addEventListener("click", async function() {
         if (!confirm("Eliminare definitivamente questo volontario?")) return;
+        var row = this.closest("tr");
+        if (row) { row.style.opacity = "0.4"; row.style.transition = "opacity 0.3s"; }
         await sb.from("volontari").delete().eq("id", this.getAttribute("data-del"));
         showToast("✅ Volontario eliminato");
-        loadAll();
+        await loadAll();
       });
     });
   }
@@ -448,9 +455,11 @@ document.addEventListener("DOMContentLoaded", function() {
     tbody.querySelectorAll("[data-del-device]").forEach(function(btn) {
       btn.addEventListener("click", async function() {
         if (!confirm("Rimuovere questo dispositivo dalla lista notifiche?")) return;
+        var row = this.closest("tr");
+        if (row) { row.style.opacity = "0.4"; row.style.transition = "opacity 0.3s"; }
         await sb.from("push_subscriptions").delete().eq("id", this.getAttribute("data-del-device"));
         showToast("✅ Dispositivo rimosso");
-        loadDevices();
+        await loadDevices();
       });
     });
   }

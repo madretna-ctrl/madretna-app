@@ -321,14 +321,21 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-  // ── RILEVA RUOLO DA URL ───────────────────────────────────
+  // ── RILEVA RUOLO DA URL O SESSIONE ───────────────────────
   var params  = new URLSearchParams(window.location.search);
-  var ruolo   = params.get('ruolo');
-  var nomeVol = params.get('nome');
-  var comuneVol = params.get('comune') ? decodeURIComponent(params.get('comune')) : '';
+  var ruolo   = params.get('ruolo') || sessionStorage.getItem('madretna_ruolo');
+  var nomeVol = params.get('nome')  || sessionStorage.getItem('madretna_nome');
+  var comuneVol = params.get('comune')
+    ? decodeURIComponent(params.get('comune'))
+    : (sessionStorage.getItem('madretna_comune') || '');
   var isVolontario = ruolo === 'volontario';
-  var isAdmin = ruolo === 'admin';
+  var isAdmin      = ruolo === 'admin';
   var mostraTuttiComuni = false;
+
+  // Salva in sessione per sopravvivere ai refresh
+  if (ruolo)     sessionStorage.setItem('madretna_ruolo', ruolo);
+  if (nomeVol)   sessionStorage.setItem('madretna_nome', nomeVol);
+  if (comuneVol) sessionStorage.setItem('madretna_comune', comuneVol);
 
   if (isAdmin || isVolontario) {
     document.getElementById('login-screen').style.display = 'none';
@@ -392,6 +399,9 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("login-btn").addEventListener("click", doLogin);
   document.getElementById("pwd-input").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   window.logout = function() {
+    sessionStorage.removeItem('madretna_ruolo');
+    sessionStorage.removeItem('madretna_nome');
+    sessionStorage.removeItem('madretna_comune');
     document.getElementById("login-screen").style.display = "flex";
     document.getElementById("admin-content").style.display = "none";
     document.getElementById("pwd-input").value = "";
@@ -593,8 +603,16 @@ document.addEventListener("DOMContentLoaded", function() {
     if (!pendingDeleteId) return;
     try {
       var r = await sbAdmin.from("segnalazioni").delete().eq("id", pendingDeleteId);
-      if (r.error) showToast("Errore: "+r.error.message, true);
-      else { showToast("✅ Segnalazione eliminata"); await loadData(); }
+      if (r.error) {
+        showToast("Errore: "+r.error.message, true);
+      } else {
+        showToast("✅ Segnalazione eliminata");
+        // Flash visivo sulla tabella
+        var wrap = document.querySelector(".table-wrap");
+        if (wrap) { wrap.style.opacity = "0.4"; wrap.style.transition = "opacity 0.3s"; }
+        await loadData();
+        if (wrap) { wrap.style.opacity = "1"; }
+      }
     } catch(e) { showToast("Errore connessione", true); }
     pendingDeleteId = null;
   });
