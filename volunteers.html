@@ -321,6 +321,38 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
+  // ── NOTIFICA DI PROVA ────────────────────────────────────
+  async function sendTestNotification(deviceId) {
+    try {
+      // Recupera il dispositivo specifico
+      var res = await sb.from("push_subscriptions").select("*").eq("id", deviceId).single();
+      if (res.error || !res.data) return false;
+
+      // Chiama la Edge Function passando un payload di test
+      var fnRes = await fetch(
+        "https://yonlwnggyzfshkypdsus.supabase.co/functions/v1/notify-push",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + SB_SVC
+          },
+          body: JSON.stringify({
+            record: {
+              tipo: "🧪 Notifica di prova",
+              descrizione: "Test inviato dal pannello admin MadrEtna"
+            },
+            test_device: res.data  // passa solo questo dispositivo
+          })
+        }
+      );
+      return fnRes.ok;
+    } catch(e) {
+      console.error("Test push error:", e);
+      return false;
+    }
+  }
+
   // ── GENERA PASSWORD TEMPORANEA ───────────────────────────
   function generateTempPassword() {
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -385,9 +417,24 @@ document.addEventListener("DOMContentLoaded", function() {
         "<td style='opacity:.5'>" + (i + 1) + "</td>" +
         "<td><span style='font-size:.82rem'>" + browser + "</span><br><span style='font-family:monospace;font-size:.68rem;opacity:.4'>" + endpointShort + "</span></td>" +
         "<td style='font-size:.8rem'>" + date + "</td>" +
-        "<td><button class='action-btn' data-del-device='" + d.id + "'>🗑 Rimuovi</button></td>" +
+        "<td style='white-space:nowrap'>" +
+        "<button class='action-btn test-btn' data-test-device='" + d.id + "' style='border-color:#27ae6055;color:#2ecc71'>🔔 Test</button>" +
+        "<button class='action-btn' data-del-device='" + d.id + "'>🗑 Rimuovi</button>" +
+        "</td>" +
         "</tr>";
     }).join("");
+
+    tbody.querySelectorAll("[data-test-device]").forEach(function(btn) {
+      btn.addEventListener("click", async function() {
+        var id  = this.getAttribute("data-test-device");
+        var btn = this;
+        btn.disabled = true; btn.textContent = "⏳…";
+        var ok = await sendTestNotification(id);
+        btn.disabled = false; btn.textContent = "🔔 Test";
+        if (ok) showToast("✅ Notifica di prova inviata!");
+        else    showToast("❌ Invio fallito — controlla la Edge Function", true);
+      });
+    });
 
     tbody.querySelectorAll("[data-del-device]").forEach(function(btn) {
       btn.addEventListener("click", async function() {
