@@ -172,6 +172,7 @@ tr:hover td{background:#252525;}
       <div class="section-title" style="margin-bottom:0">🗑️ Gestione segnalazioni</div>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         <button class="export-btn" id="export-btn">📥 Esporta Excel</button>
+        <button class="export-btn" id="update-comuni-btn" style="background:#1a2a3a;border:1px solid #2980b955;color:#3498db" title="Aggiorna i comuni mancanti tramite coordinate GPS">🏘 Aggiorna comuni</button>
         <button class="export-btn" id="clear-log-btn" style="background:#3a1a1a;border:1px solid #c0392b55;color:#e74c3c" title="Elimina tutti i log di accesso">🧹 Pulisci log accessi</button>
       </div>
     </div>
@@ -371,7 +372,53 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  // ── PULIZIA LOG ────────────────────────────────────────────
+  // ── AGGIORNA COMUNI MANCANTI ───────────────────────────────
+  document.getElementById('update-comuni-btn').addEventListener('click', async function() {
+    var btn = this;
+    // Trova segnalazioni senza comune ma con coordinate
+    var missing = allReports.filter(function(r) {
+      return r.lat && r.lng && !r.comune;
+    });
+    if (!missing.length) {
+      showToast('✅ Tutti i comuni sono già aggiornati!');
+      return;
+    }
+    if (!confirm('Aggiornare il comune per ' + missing.length + ' segnalazioni tramite reverse geocoding? Potrebbe richiedere qualche minuto.')) return;
+
+    btn.disabled = true;
+    var updated = 0;
+    var errors  = 0;
+
+    for (var i = 0; i < missing.length; i++) {
+      var r = missing[i];
+      btn.textContent = '⏳ ' + (i + 1) + '/' + missing.length + '…';
+      try {
+        var geoRes = await fetch(
+          'https://nominatim.openstreetmap.org/reverse?lat=' + r.lat + '&lon=' + r.lng + '&format=json&accept-language=it',
+          { headers: { 'User-Agent': 'MadrEtna-Admin/1.0' } }
+        );
+        var geo = await geoRes.json();
+        var comune = geo.address?.town || geo.address?.village || geo.address?.municipality || geo.address?.city || geo.address?.county || null;
+        if (comune) {
+          var upd = await sbAdmin.from('segnalazioni').update({ comune: comune }).eq('id', r.id);
+          if (!upd.error) {
+            r.comune = comune; // aggiorna anche in memoria
+            updated++;
+          }
+        }
+      } catch(e) {
+        errors++;
+      }
+      // Pausa 400ms tra le richieste per rispettare i rate limit di Nominatim
+      await new Promise(function(res){ setTimeout(res, 400); });
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🏘 Aggiorna comuni';
+    showToast('✅ Aggiornati ' + updated + '/' + missing.length + ' comuni' + (errors ? ' (' + errors + ' errori)' : ''));
+    renderTable();
+    renderMap();
+  });
   document.getElementById('clear-log-btn').addEventListener('click', async function() {
     if (!confirm('Eliminare tutti i log di accesso? L\'operazione è irreversibile.')) return;
     var btn = this;
