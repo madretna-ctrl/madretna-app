@@ -905,7 +905,7 @@ function renderGrid() {
         <div class="report-title">${r.descrizione ? r.descrizione.slice(0, 60) + (r.descrizione.length > 60 ? '…' : '') : 'Segnalazione #' + (idx+1)}</div>
         <div class="report-meta">
           <span>📅 ${r.date}</span>
-          ${r.lat ? `<span>📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</span>` : ''}
+          ${r.comune ? `<span>🏘 ${r.comune}</span>` : r.lat ? `<span>📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</span>` : ''}
         </div>
       </div>`;
     grid.appendChild(card);
@@ -1198,7 +1198,7 @@ function openModal(idx) {
   }
 
   document.getElementById('modal-badge').innerHTML =
-    `<span class="report-badge ${BADGE_CLASSES[r.tipo] || 'badge-altro'}">${r.tipo || 'Altro'}</span>`;
+    `<span class="report-badge ${BADGE_CLASSES[r.tipo] || 'badge-altro'}">${r.tipo || 'Altro'}</span>${r.comune ? `<span style="margin-left:.5rem;font-size:.8rem;opacity:.7">🏘 ${r.comune}</span>` : ''}`;
   document.getElementById('modal-title').textContent = r.descrizione ? r.descrizione.slice(0, 80) : 'Segnalazione';
   document.getElementById('modal-desc').textContent = r.descrizione || '—';
   document.getElementById('modal-coords').textContent = r.lat ? `📍 ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)} · 📅 ${r.date}` : `📅 ${r.date}`;
@@ -1239,6 +1239,7 @@ async function loadReports() {
     lng: r.lng,
     photo: r.photo,
     aiAnalysis: r.ai_analysis,
+    comune: r.comune || null,
     date: new Date(r.created_at).toLocaleDateString('it-IT'),
     dateRaw: r.created_at
   }));

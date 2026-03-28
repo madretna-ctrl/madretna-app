@@ -524,7 +524,9 @@ document.addEventListener("DOMContentLoaded", function() {
       var badge = BADGE_MAP[r.tipo]||"badge-altro";
       var nome = ((r.nome_segnalante||"")+" "+(r.cognome_segnalante||"")).trim()||"—";
       var tel = r.telefono_segnalante||"—";
-      var comune = r.comune || "<span style=\"opacity:.4\">…</span>";
+      var comune = r.comune
+        ? "<span style='background:#2d5a2744;border:1px solid #2d5a2788;border-radius:20px;padding:.15rem .6rem;font-size:.75rem;color:var(--accent)'>🏘 "+r.comune+"</span>"
+        : "<span style='opacity:.3'>—</span>";
       return "<tr>"+
         "<td>"+img+"</td>"+
         "<td><span class=\"badge "+badge+"\">"+( r.tipo||"Altro")+"</span></td>"+
