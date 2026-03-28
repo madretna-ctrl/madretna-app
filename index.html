@@ -365,6 +365,21 @@
   .success-msg p { font-size: 0.95rem; }
   .success-msg strong { color: var(--accent); }
 
+  /* MESSAGGIO FUORI PARCO */
+  .fuori-parco-msg {
+    display: none;
+    background: #2a1a0a;
+    border: 1px solid var(--arancio);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    margin-top: 1rem;
+    font-size: .88rem;
+    line-height: 1.6;
+    color: var(--sabbia);
+  }
+  .fuori-parco-msg.show { display: block; animation: fadeIn 0.4s ease; }
+  .fuori-parco-msg strong { color: #f39c12; }
+
   /* AI ANALYSIS */
   .ai-box {
     background: #1a2a1a;
@@ -787,6 +802,13 @@
       <div class="success-msg" id="success-msg">
         <p>✅ <strong>Segnalazione inviata!</strong><br>Grazie per contribuire alla difesa del Parco dell'Etna.</p>
       </div>
+
+      <div class="fuori-parco-msg" id="fuori-parco-msg">
+        <strong>⚠️ Segnalazione non inviata</strong><br><br>
+        In base alle coordinate GPS questo sversamento non ricade all'interno del territorio del Parco dell'Etna.<br><br>
+        Ti invitiamo a contattare le autorità del territorio in cui hai rinvenuto questo sversamento.<br><br>
+        <strong>Grazie per il tuo impegno ambientale!</strong>
+      </div>
     </div>
   </div>
 </div>
@@ -1046,6 +1068,13 @@ function noExifGPS(gpsBtn, gpsSource) {
   document.getElementById('comune-group').style.display = 'block';
 }
 
+function showMsgFuoriParco() {
+  const msg = document.getElementById('fuori-parco-msg');
+  msg.classList.add('show');
+  msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => msg.classList.remove('show'), 12000);
+}
+
 // ============================================================
 // AI ANALYSIS
 // ============================================================
@@ -1093,6 +1122,23 @@ Sii diretto e utile.`;
 }
 
 // ============================================================
+// COMUNI DEL PARCO DELL'ETNA
+// ============================================================
+const COMUNI_PARCO = [
+  'adrano','belpasso','biancavilla','bronte','castiglione di sicilia',
+  'giarre','linguaglossa','maletto','mascali','milo','nicolosi','pedara',
+  'piedimonte etneo','ragalna','randazzo','sant\'alfio','santa maria di licodia',
+  'trecastagni','viagrande','zafferana etnea'
+];
+
+function isNelParco(comune) {
+  if (!comune) return false;
+  return COMUNI_PARCO.some(function(c) {
+    return comune.toLowerCase().includes(c) || c.includes(comune.toLowerCase());
+  });
+}
+
+// ============================================================
 // SUBMIT
 // ============================================================
 async function submitReport() {
@@ -1112,18 +1158,32 @@ async function submitReport() {
   }
   if (!privacy) { alert('Devi accettare l\'informativa sulla privacy per inviare la segnalazione.'); return; }
 
+  // Valida comune manuale se inserito
+  if (comuneManuale && !isNelParco(comuneManuale)) {
+    showMsgFuoriParco();
+    return;
+  }
+
   btn.disabled = true;
-  btn.textContent = '⏳ Invio in corso…';
+  btn.textContent = '⏳ Verifica posizione…';
 
   const aiText = document.getElementById('ai-content').textContent || '';
 
-  // Comune: da selezione manuale oppure da reverse geocoding se coordinate EXIF disponibili
+  // Comune da reverse geocoding se coordinate EXIF disponibili
   let comuneFinale = comuneManuale || null;
   if (gpsLat && gpsLng && !comuneManuale) {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${gpsLat}&lon=${gpsLng}&format=json&accept-language=it`, { headers: { 'User-Agent': 'MadrEtna/1.0' } });
       const geo = await res.json();
       comuneFinale = geo.address?.town || geo.address?.village || geo.address?.municipality || geo.address?.city || null;
+
+      // Verifica se il comune è nel Parco dell'Etna
+      if (comuneFinale && !isNelParco(comuneFinale)) {
+        btn.disabled = false;
+        btn.textContent = '🌿 Invia segnalazione';
+        showMsgFuoriParco();
+        return;
+      }
     } catch(e) {}
   }
 
@@ -1158,6 +1218,7 @@ async function submitReport() {
   document.getElementById('gps-display').textContent = 'Posizione non rilevata';
   document.getElementById('comune-manuale').value = '';
   document.getElementById('comune-group').style.display = 'none';
+  document.getElementById('fuori-parco-msg').classList.remove('show');
   const gpsBtn = document.getElementById('gps-btn');
   gpsBtn.disabled = false;
   gpsBtn.style.opacity = '1';
