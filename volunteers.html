@@ -244,17 +244,36 @@ document.addEventListener("DOMContentLoaded", function() {
 
     btn.disabled = true; btn.textContent = "⏳ Registrazione…";
 
+    // 1. Crea utente in Supabase Auth
+    var authRes = await sb.auth.admin.createUser({
+      email: email,
+      password: pwd,
+      email_confirm: true  // conferma email automatica
+    });
+
+    if (authRes.error) {
+      btn.disabled = false; btn.textContent = "👤 Registra volontario";
+      showToast(authRes.error.message.includes("already") ? "Email già registrata" : "Errore Auth: "+authRes.error.message, true);
+      return;
+    }
+
+    // 2. Crea profilo nella tabella volontari collegato all'auth user
     var hash = await hashPwd(pwd);
     var res  = await sb.from("volontari").insert([{
-      nome: nome, cognome: cognome, email: email, telefono: telefono||null, comune_riferimento: comune||null, password_hash: hash
+      nome: nome, cognome: cognome, email: email,
+      telefono: telefono||null, comune_riferimento: comune||null,
+      password_hash: hash,
+      auth_id: authRes.data.user.id
     }]);
 
     btn.disabled = false; btn.textContent = "👤 Registra volontario";
 
     if (res.error) {
+      // Rollback: elimina utente auth se inserimento profilo fallisce
+      await sb.auth.admin.deleteUser(authRes.data.user.id);
       showToast(res.error.message.includes("unique") ? "Email già registrata" : "Errore: "+res.error.message, true);
     } else {
-      showToast("✅ Volontario registrato!");
+      showToast("✅ Volontario registrato! Può ora accedere con la sua email.");
       document.getElementById("v-nome").value="";
       document.getElementById("v-cognome").value="";
       document.getElementById("v-email").value="";
@@ -288,7 +307,7 @@ document.addEventListener("DOMContentLoaded", function() {
       var toggleClass = v.attivo ? "action-btn" : "action-btn enable";
       return "<tr><td>"+v.nome+"</td><td>"+v.cognome+"</td><td>"+v.email+"</td><td>"+(v.telefono||"—")+"</td><td>"+(v.comune_riferimento||"—")+"</td><td>"+stato+"</td><td>"+date+"</td><td>"+
         "<button class='"+toggleClass+"' data-id='"+v.id+"' data-attivo='"+v.attivo+"'>"+toggleLabel+"</button>"+
-        "<button class='action-btn' data-reset='"+v.id+"' data-nome='"+v.nome+" "+v.cognome+"'>🔑 Reset pwd</button>"+
+        "<button class='action-btn' data-reset='"+v.id+"' data-nome='"+v.nome+" "+v.cognome+"' data-email='"+v.email+"'>🔑 Reset pwd</button>"+
         "<button class='action-btn' data-del='"+v.id+"'>🗑 Elimina</button>"+
         "</td></tr>";
     }).join("");
@@ -307,12 +326,27 @@ document.addEventListener("DOMContentLoaded", function() {
       btn.addEventListener("click", async function() {
         var id   = this.getAttribute("data-reset");
         var nome = this.getAttribute("data-nome");
-        if (!confirm("Reimpostare la password per " + nome + "?")) return;
-        var tempPwd = generateTempPassword();
-        var hash    = await hashPwd(tempPwd);
-        var res = await sb.from("volontari").update({ password_hash: hash }).eq("id", id);
-        if (res.error) { showToast("Errore: " + res.error.message, true); return; }
-        showPwdModal(nome, tempPwd);
+        var email = this.getAttribute("data-email");
+        if (!confirm("Reimpostare la password per " + nome + "?\nVerra inviata un'email con il link di reset.")) return;
+
+        // Invia email di reset tramite Supabase Auth
+        var authRes = await sb.auth.admin.generateLink({
+          type: "recovery",
+          email: email,
+          options: { redirectTo: "https://madretna-ctrl.github.io/madretna-app/change-password.html" }
+        });
+
+        if (authRes.error) {
+          // Fallback: genera password temporanea se utente non è in Auth
+          var tempPwd = generateTempPassword();
+          var hash    = await hashPwd(tempPwd);
+          var res = await sb.from("volontari").update({ password_hash: hash }).eq("id", id);
+          if (res.error) { showToast("Errore: " + res.error.message, true); return; }
+          showPwdModal(nome, tempPwd);
+          showToast("⚠️ Utente non in Auth — password temporanea generata");
+        } else {
+          showToast("✅ Email di reset inviata a " + email);
+        }
       });
     });
 
