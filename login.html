@@ -101,12 +101,13 @@ input:focus{outline:none;border-color:var(--verde-chiaro);}
 document.addEventListener("DOMContentLoaded", function () {
 
   const ADMIN_PASSWORD = "parcoetna00";
-  const SB_URL = "https://yonlwnggyzfshkypdsus.supabase.co";
+  const SB_URL  = "https://yonlwnggyzfshkypdsus.supabase.co";
   const SB_ANON = "sb_publishable_7Euxhk2THGCC35P-_V4nJQ_Ey5mz1oL";
   const SB_SVC  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvbmx3bmdneXpmc2hreXBkc3VzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDM0NDczMCwiZXhwIjoyMDg5OTIwNzMwfQ.gK9IFcG1StJmOKAlV55K4DBpi25m3kkeUhX7dm4ZNXU";
 
-  const sbAnon = supabase.createClient(SB_URL, SB_ANON);
-  const sbSvc  = supabase.createClient(SB_URL, SB_SVC);
+  // Un solo client — usiamo anon per auth (signIn, resetPassword) e svc per DB
+  const sbAnon = supabase.createClient(SB_URL, SB_ANON, { auth: { storageKey: 'madretna-anon' } });
+  const sbSvc  = supabase.createClient(SB_URL, SB_SVC,  { auth: { storageKey: 'madretna-svc'  } });
 
   // TOGGLE FORGOT
   document.getElementById("forgot-btn").addEventListener("click", function () {
