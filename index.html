@@ -643,6 +643,72 @@
     padding: 0.2rem 0.4rem;
     font-size: 1rem;
   }
+
+  /* BANNER GEOLOCALIZZAZIONE */
+  #geo-banner {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    z-index: 2000;
+    background: #1a1a2e;
+    border-top: 3px solid #e67e22;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+    animation: slideUp 0.4s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  #geo-banner .geo-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f39c12;
+    margin-bottom: .4rem;
+  }
+  #geo-banner .geo-text {
+    font-size: .82rem;
+    opacity: .85;
+    line-height: 1.5;
+    margin-bottom: .8rem;
+  }
+  #geo-banner .geo-steps {
+    font-size: .78rem;
+    opacity: .65;
+    line-height: 1.7;
+    margin-bottom: .9rem;
+  }
+  #geo-banner .geo-btns {
+    display: flex;
+    gap: .6rem;
+    flex-wrap: wrap;
+  }
+  #geo-banner .geo-btn-primary {
+    background: #e67e22;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem;
+    font-weight: 600;
+    padding: .55rem 1.1rem;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  #geo-banner .geo-btn-primary:hover { background: #d35400; }
+  #geo-banner .geo-btn-close {
+    background: transparent;
+    border: 1px solid #555;
+    border-radius: 8px;
+    color: var(--sabbia);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .82rem;
+    padding: .5rem .9rem;
+    cursor: pointer;
+    opacity: .6;
+  }
 </style>
 </head>
 <body>
@@ -1348,6 +1414,19 @@ window.addEventListener('load', async () => {
   <button class="close-banner" onclick="document.getElementById('install-banner').style.display='none'">✕</button>
 </div>
 
+<!-- BANNER GEOLOCALIZZAZIONE -->
+<div id="geo-banner">
+  <div class="geo-title">📍 Geolocalizzazione non attiva</div>
+  <div class="geo-text">
+    Per inviare segnalazioni precise è necessario autorizzare l'accesso alla posizione GPS del tuo dispositivo.
+  </div>
+  <div class="geo-steps" id="geo-steps"></div>
+  <div class="geo-btns">
+    <button class="geo-btn-primary" id="geo-retry-btn">🔄 Riprova</button>
+    <button class="geo-btn-close" onclick="document.getElementById('geo-banner').style.display='none'">Continua comunque</button>
+  </div>
+</div>
+
 <script>
 // Registrazione Service Worker (PWA)
 if ('serviceWorker' in navigator) {
@@ -1396,7 +1475,94 @@ async function subscribeToPush(reg) {
   }
 }
 
-// Banner "Aggiungi alla schermata home" per Android
+// ============================================================
+// CONTROLLO GEOLOCALIZZAZIONE
+// ============================================================
+function checkGeolocation() {
+  // Solo su mobile/tablet (schermi piccoli o touch)
+  const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (!isMobile) return;
+
+  if (!('geolocation' in navigator)) {
+    showGeoBanner('unsupported');
+    return;
+  }
+
+  // Usa la Permissions API se disponibile
+  if ('permissions' in navigator) {
+    navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+      if (result.state === 'denied') {
+        showGeoBanner('denied');
+      } else if (result.state === 'prompt') {
+        // Non ancora chiesto — non mostrare nulla, lo chiederà quando serve
+      }
+      // Ascolta cambiamenti futuri
+      result.onchange = function() {
+        if (this.state === 'denied') showGeoBanner('denied');
+        else if (this.state === 'granted') document.getElementById('geo-banner').style.display = 'none';
+      };
+    });
+  } else {
+    // Fallback: prova a richiedere la posizione
+    navigator.geolocation.getCurrentPosition(
+      function() { document.getElementById('geo-banner').style.display = 'none'; },
+      function(err) {
+        if (err.code === err.PERMISSION_DENIED) showGeoBanner('denied');
+      },
+      { timeout: 5000 }
+    );
+  }
+}
+
+function showGeoBanner(reason) {
+  const banner = document.getElementById('geo-banner');
+  const steps  = document.getElementById('geo-steps');
+
+  // Rileva sistema operativo
+  const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+
+  if (reason === 'unsupported') {
+    steps.innerHTML = '⚠️ Il tuo browser non supporta la geolocalizzazione. Usa Chrome o Safari aggiornato.';
+  } else if (reason === 'denied') {
+    if (isIOS) {
+      steps.innerHTML =
+        '📱 <strong>iPhone/iPad:</strong><br>' +
+        '1. Vai in <strong>Impostazioni → Privacy → Localizzazione</strong><br>' +
+        '2. Cerca <strong>Safari</strong> (o il tuo browser)<br>' +
+        '3. Imposta su <strong>"Durante l\'utilizzo"</strong>';
+    } else if (isAndroid) {
+      steps.innerHTML =
+        '🤖 <strong>Android:</strong><br>' +
+        '1. Vai in <strong>Impostazioni → App → Chrome</strong><br>' +
+        '2. Tocca <strong>Autorizzazioni → Posizione</strong><br>' +
+        '3. Seleziona <strong>"Consenti"</strong>';
+    } else {
+      steps.innerHTML =
+        '🌐 <strong>Browser:</strong><br>' +
+        '1. Clicca sull\'icona 🔒 nella barra degli indirizzi<br>' +
+        '2. Cerca <strong>"Posizione"</strong> e imposta su <strong>"Consenti"</strong>';
+    }
+  }
+
+  banner.style.display = 'block';
+}
+
+// Pulsante Riprova
+document.getElementById('geo-retry-btn').addEventListener('click', function() {
+  navigator.geolocation.getCurrentPosition(
+    function() {
+      document.getElementById('geo-banner').style.display = 'none';
+    },
+    function(err) {
+      if (err.code === err.PERMISSION_DENIED) showGeoBanner('denied');
+    },
+    { timeout: 8000 }
+  );
+});
+
+// Avvia il controllo dopo 2 secondi (dà tempo alla pagina di caricarsi)
+setTimeout(checkGeolocation, 2000);
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
