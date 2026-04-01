@@ -834,6 +834,7 @@
 
       <div class="form-group">
         <label>📍 Posizione GPS</label>
+        <div style="font-size:.75rem;opacity:.5;margin-bottom:.5rem">💡 Consiglio: rileva prima la posizione, poi scatta la foto</div>
         <div class="gps-row">
           <button class="gps-btn" id="gps-btn" onclick="getGPS()">🛰 Rileva posizione</button>
           <div class="gps-value" id="gps-display">Posizione non rilevata</div>
@@ -1115,22 +1116,33 @@ async function extractExifGPS(file) {
       gpsBtn.title = 'Coordinate già disponibili dai metadati EXIF della foto';
 
     } else {
-      // Nessun dato GPS nei metadati — riabilita GPS manuale
+      // Nessun dato GPS nei metadati EXIF
       noExifGPS(gpsBtn, gpsSource);
     }
   } catch (err) {
-    // Errore lettura EXIF — riabilita GPS manuale
+    // Errore lettura EXIF
     noExifGPS(gpsBtn, gpsSource);
   }
 }
 
 function noExifGPS(gpsBtn, gpsSource) {
+  // Se le coordinate GPS erano già state rilevate manualmente, le manteniamo
+  if (gpsLat && gpsLng) {
+    gpsBtn.disabled = true;
+    gpsBtn.style.opacity = '0.45';
+    gpsSource.textContent  = '📍 Coordinate GPS già rilevate — foto caricata senza metadati GPS.';
+    gpsSource.style.display = 'block';
+    gpsSource.style.color   = 'var(--accent)';
+    document.getElementById('comune-group').style.display = 'none';
+    return;
+  }
+
+  // Nessuna coordinata disponibile — mostra messaggio e campo comune
   gpsBtn.disabled = true;
   gpsBtn.style.opacity = '0.45';
   gpsSource.textContent  = '⚠️ Non è possibile risalire alle coordinate GPS per questa foto, per favore in descrizione inserisci indicazioni sul luogo del rinvenimento.';
   gpsSource.style.display = 'block';
   gpsSource.style.color   = 'var(--arancio)';
-  // Mostra il campo comune manuale
   document.getElementById('comune-group').style.display = 'block';
 }
 
