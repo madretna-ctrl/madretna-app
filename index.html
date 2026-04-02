@@ -790,6 +790,33 @@
       <div class="form-subtitle">Aiutaci a mappare gli sversamenti nel Parco dell'Etna</div>
 
       <div class="form-group">
+        <label>📍 Posizione GPS</label>
+        <div style="font-size:.75rem;opacity:.5;margin-bottom:.5rem">💡 Consiglio: rileva prima la posizione, poi scatta la foto</div>
+        <div class="gps-row">
+          <button class="gps-btn" id="gps-btn" onclick="getGPS()">🛰 Rileva posizione</button>
+          <div class="gps-value" id="gps-display">Posizione non rilevata</div>
+        </div>
+        <div id="gps-source" style="font-size:0.75rem;margin-top:0.4rem;opacity:0.6;display:none"></div>
+        <input type="hidden" id="gps-lat">
+        <input type="hidden" id="gps-lng">
+      </div>
+
+      <!-- Campo comune: visibile solo quando EXIF non disponibile -->
+      <div class="form-group" id="comune-group" style="display:none">
+        <label>🏘 Comune del ritrovamento</label>
+        <select id="comune-manuale">
+          <option value="">— Seleziona comune —</option>
+          <option>Adrano</option><option>Belpasso</option><option>Biancavilla</option>
+          <option>Bronte</option><option>Castiglione di Sicilia</option><option>Giarre</option>
+          <option>Linguaglossa</option><option>Maletto</option><option>Mascali</option>
+          <option>Milo</option><option>Nicolosi</option><option>Pedara</option>
+          <option>Piedimonte Etneo</option><option>Ragalna</option><option>Randazzo</option>
+          <option>Sant'Alfio</option><option>Santa Maria di Licodia</option>
+          <option>Trecastagni</option><option>Viagrande</option><option>Zafferana Etnea</option>
+        </select>
+      </div>
+
+      <div class="form-group">
         <label>📸 Foto del sito</label>
         <div class="photo-upload" id="photo-drop">
           <input type="file" accept="image/*" id="photo-input" onchange="handlePhoto(this)">
@@ -830,33 +857,6 @@
         <label for="privacy-check">
           Ho letto e accetto l'<a href="/madretna-app/privacy.html" target="_blank">informativa sulla privacy</a> ai sensi del GDPR (Reg. UE 2016/679). I dati personali forniti saranno trattati da Associazione MadrEtna esclusivamente per la gestione delle segnalazioni ambientali.
         </label>
-      </div>
-
-      <div class="form-group">
-        <label>📍 Posizione GPS</label>
-        <div style="font-size:.75rem;opacity:.5;margin-bottom:.5rem">💡 Consiglio: rileva prima la posizione, poi scatta la foto</div>
-        <div class="gps-row">
-          <button class="gps-btn" id="gps-btn" onclick="getGPS()">🛰 Rileva posizione</button>
-          <div class="gps-value" id="gps-display">Posizione non rilevata</div>
-        </div>
-        <div id="gps-source" style="font-size:0.75rem;margin-top:0.4rem;opacity:0.6;display:none"></div>
-        <input type="hidden" id="gps-lat">
-        <input type="hidden" id="gps-lng">
-      </div>
-
-      <!-- Campo comune: visibile solo quando EXIF non disponibile -->
-      <div class="form-group" id="comune-group" style="display:none">
-        <label>🏘 Comune del ritrovamento</label>
-        <select id="comune-manuale">
-          <option value="">— Seleziona comune —</option>
-          <option>Adrano</option><option>Belpasso</option><option>Biancavilla</option>
-          <option>Bronte</option><option>Castiglione di Sicilia</option><option>Giarre</option>
-          <option>Linguaglossa</option><option>Maletto</option><option>Mascali</option>
-          <option>Milo</option><option>Nicolosi</option><option>Pedara</option>
-          <option>Piedimonte Etneo</option><option>Ragalna</option><option>Randazzo</option>
-          <option>Sant'Alfio</option><option>Santa Maria di Licodia</option>
-          <option>Trecastagni</option><option>Viagrande</option><option>Zafferana Etnea</option>
-        </select>
       </div>
 
       <div class="ai-box" id="ai-box">
