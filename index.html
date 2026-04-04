@@ -365,7 +365,59 @@
   .success-msg p { font-size: 0.95rem; }
   .success-msg strong { color: var(--accent); }
 
-  /* MESSAGGIO FUORI PARCO */
+  /* MINI MAPPA POSIZIONE */
+  #gps-mini-map {
+    display: none;
+    width: 100%;
+    height: 220px;
+    border-radius: 12px;
+    border: 2px solid var(--verde);
+    margin-top: .75rem;
+    overflow: hidden;
+    position: relative;
+  }
+  #gps-mini-map .map-accuracy-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 1000;
+    background: rgba(26,26,26,.82);
+    border-radius: 8px;
+    padding: .25rem .6rem;
+    font-size: .72rem;
+    color: var(--sabbia);
+    pointer-events: none;
+  }
+  #gps-mini-map-confirm {
+    display: none;
+    margin-top: .6rem;
+    width: 100%;
+    background: var(--verde);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .88rem;
+    font-weight: 600;
+    padding: .6rem 1rem;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  #gps-mini-map-confirm:hover { background: var(--verde-chiaro); }
+  #gps-mini-map-reset {
+    display: none;
+    margin-top: .4rem;
+    width: 100%;
+    background: transparent;
+    border: 1px solid #555;
+    border-radius: 8px;
+    color: var(--sabbia);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .82rem;
+    padding: .5rem 1rem;
+    cursor: pointer;
+    opacity: .7;
+  }
   .fuori-parco-msg {
     display: none;
     background: #2a1a0a;
@@ -799,6 +851,13 @@
         <div id="gps-source" style="font-size:0.75rem;margin-top:0.4rem;opacity:0.6;display:none"></div>
         <input type="hidden" id="gps-lat">
         <input type="hidden" id="gps-lng">
+
+        <!-- Mini mappa verifica posizione -->
+        <div id="gps-mini-map">
+          <div class="map-accuracy-badge" id="gps-accuracy-badge"></div>
+        </div>
+        <button id="gps-mini-map-confirm" onclick="confirmGpsPosition()">✅ Posizione corretta — conferma</button>
+        <button id="gps-mini-map-reset" onclick="resetGpsPosition()">🔄 Posizione errata — riprova</button>
       </div>
 
       <!-- Campo comune: visibile solo quando EXIF non disponibile -->
@@ -1020,29 +1079,141 @@ function filterReports(tipo, btn) {
 }
 
 // ============================================================
-// GPS
+// GPS + MINI MAPPA
 // ============================================================
+let gpsMap = null;
+let gpsMarker = null;
+let gpsConfirmed = false;
+
 function getGPS() {
   const display = document.getElementById('gps-display');
   display.textContent = '⏳ Rilevamento in corso…';
+  gpsConfirmed = false;
+
   if (!navigator.geolocation) {
     display.textContent = '❌ GPS non disponibile su questo dispositivo';
     return;
   }
+
   navigator.geolocation.getCurrentPosition(pos => {
-    gpsLat = pos.coords.latitude;
-    gpsLng = pos.coords.longitude;
-    document.getElementById('gps-lat').value = gpsLat;
-    document.getElementById('gps-lng').value = gpsLng;
-    display.textContent = `✅ ${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy);
+
+    // Mostra coordinate provvisorie
+    gpsLat = lat;
+    gpsLng = lng;
+    document.getElementById('gps-lat').value = lat;
+    document.getElementById('gps-lng').value = lng;
+    display.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    // Mostra mini mappa per conferma
+    showGpsMiniMap(lat, lng, acc);
+
   }, err => {
-    // fallback: random near Etna for demo
-    gpsLat = 37.68 + (Math.random() - 0.5) * 0.15;
-    gpsLng = 15.00 + (Math.random() - 0.5) * 0.2;
-    document.getElementById('gps-lat').value = gpsLat;
-    document.getElementById('gps-lng').value = gpsLng;
-    display.textContent = `📍 Demo: ${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
-  }, { timeout: 8000 });
+    display.textContent = '❌ Impossibile rilevare la posizione. Verifica che il GPS sia attivo.';
+  }, { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 });
+}
+
+function showGpsMiniMap(lat, lng, accuracy) {
+  const mapDiv = document.getElementById('gps-mini-map');
+  const confirmBtn = document.getElementById('gps-mini-map-confirm');
+  const resetBtn = document.getElementById('gps-mini-map-reset');
+  const badge = document.getElementById('gps-accuracy-badge');
+
+  mapDiv.style.display = 'block';
+  confirmBtn.style.display = 'block';
+  resetBtn.style.display = 'block';
+
+  badge.textContent = `📡 Precisione: ±${accuracy}m`;
+  badge.style.color = accuracy < 30 ? '#2ecc71' : accuracy < 100 ? '#f39c12' : '#e74c3c';
+
+  // Inizializza o aggiorna la mappa
+  if (!gpsMap) {
+    gpsMap = L.map('gps-mini-map', {
+      zoomControl: true,
+      attributionControl: false,
+      dragging: true,
+      scrollWheelZoom: false
+    }).setView([lat, lng], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(gpsMap);
+  } else {
+    gpsMap.setView([lat, lng], 16);
+  }
+
+  // Marker "Sei qui"
+  const icon = L.divIcon({
+    html: `<div style="
+      background: #e74c3c;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      width: 18px; height: 18px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+      position: relative;
+    ">
+      <div style="
+        position: absolute;
+        top: -28px; left: 50%;
+        transform: translateX(-50%);
+        background: #1a1a1a;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        white-space: nowrap;
+        font-family: DM Sans, sans-serif;
+      ">📍 Sei qui</div>
+    </div>`,
+    className: '',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
+
+  if (gpsMarker) {
+    gpsMarker.setLatLng([lat, lng]);
+  } else {
+    gpsMarker = L.marker([lat, lng], { icon }).addTo(gpsMap);
+  }
+
+  // Cerchio di precisione
+  if (gpsMap._accuracyCircle) gpsMap.removeLayer(gpsMap._accuracyCircle);
+  gpsMap._accuracyCircle = L.circle([lat, lng], {
+    radius: accuracy,
+    color: '#3498db',
+    fillColor: '#3498db',
+    fillOpacity: 0.12,
+    weight: 1
+  }).addTo(gpsMap);
+
+  // Forza resize della mappa (necessario quando era display:none)
+  setTimeout(() => gpsMap.invalidateSize(), 100);
+}
+
+function confirmGpsPosition() {
+  gpsConfirmed = true;
+  document.getElementById('gps-mini-map-confirm').style.display = 'none';
+  document.getElementById('gps-mini-map-reset').style.display = 'none';
+  document.getElementById('gps-display').textContent = `✅ ${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+  document.getElementById('gps-source').textContent = '✅ Posizione confermata sulla mappa';
+  document.getElementById('gps-source').style.display = 'block';
+  document.getElementById('gps-source').style.color = 'var(--accent)';
+}
+
+function resetGpsPosition() {
+  gpsLat = null; gpsLng = null;
+  gpsConfirmed = false;
+  document.getElementById('gps-lat').value = '';
+  document.getElementById('gps-lng').value = '';
+  document.getElementById('gps-display').textContent = 'Posizione non rilevata';
+  document.getElementById('gps-source').style.display = 'none';
+  document.getElementById('gps-mini-map').style.display = 'none';
+  document.getElementById('gps-mini-map-confirm').style.display = 'none';
+  document.getElementById('gps-mini-map-reset').style.display = 'none';
+  if (gpsMap && gpsMap._accuracyCircle) gpsMap.removeLayer(gpsMap._accuracyCircle);
 }
 
 // ============================================================
@@ -1331,6 +1502,12 @@ async function submitReport() {
   document.getElementById('comune-manuale').value = '';
   document.getElementById('comune-group').style.display = 'none';
   document.getElementById('fuori-parco-msg').classList.remove('show');
+  document.getElementById('gps-mini-map').style.display = 'none';
+  document.getElementById('gps-mini-map-confirm').style.display = 'none';
+  document.getElementById('gps-mini-map-reset').style.display = 'none';
+  document.getElementById('gps-source').style.display = 'none';
+  if (gpsMap && gpsMap._accuracyCircle) gpsMap.removeLayer(gpsMap._accuracyCircle);
+  gpsConfirmed = false;
   const gpsBtn = document.getElementById('gps-btn');
   gpsBtn.disabled = false;
   gpsBtn.style.opacity = '1';
