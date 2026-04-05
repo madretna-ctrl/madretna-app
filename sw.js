@@ -58,7 +58,7 @@ self.addEventListener('push', function(event) {
     vibrate: [200, 100, 200],
     tag: 'madretna-segnalazione',
     renotify: true,
-    data: { url: data.url || '/madretna-app/admin.html' }
+    data: { url: data.url || '/madretna-app/login.html' }
   };
   event.waitUntil(
     self.registration.showNotification(data.title || '🌋 MadrEtna — Nuova segnalazione', options)
@@ -67,6 +67,6 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  var url = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/madretna-app/admin.html';
+  var url = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/madretna-app/login.html';
   event.waitUntil(clients.openWindow(url));
 });

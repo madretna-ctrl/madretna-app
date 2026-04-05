@@ -307,7 +307,8 @@ document.addEventListener("DOMContentLoaded", function() {
         var insRes = await sbAdmin.from('push_subscriptions').insert([{
           endpoint: subJson.endpoint,
           p256dh: subJson.keys.p256dh,
-          auth: subJson.keys.auth
+          auth: subJson.keys.auth,
+          comune: comuneVol || null
         }]);
         if (insRes.error && !insRes.error.message.includes('duplicate')) {
           throw new Error(insRes.error.message);
