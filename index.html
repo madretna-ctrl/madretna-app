@@ -1470,12 +1470,44 @@ async function submitReport() {
     } catch(e) {}
   }
 
+  // Carica foto su Storage se presente
+  let photoUrl = null;
+  if (currentPhotoBase64) {
+    try {
+      btn.textContent = '⏳ Caricamento foto…';
+      // Converti base64 in blob
+      const [header, b64data] = currentPhotoBase64.split(',');
+      const mime = header.match(/:(.*?);/)[1];
+      const binary = atob(b64data);
+      const arr = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+      const blob = new Blob([arr], { type: mime });
+      const ext  = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${Date.now()}.${ext}`;
+
+      const { error: upErr } = await sb.storage
+        .from('segnalazioni-foto')
+        .upload(path, blob, { contentType: mime });
+
+      if (!upErr) {
+        const { data: urlData } = sb.storage.from('segnalazioni-foto').getPublicUrl(path);
+        photoUrl = urlData.publicUrl;
+      } else {
+        console.warn('Upload foto fallito:', upErr.message);
+      }
+    } catch(e) {
+      console.warn('Errore upload foto:', e.message);
+    }
+    btn.textContent = '⏳ Invio in corso…';
+  }
+
   const { data, error } = await sb.from('segnalazioni').insert([{
     tipo,
     descrizione: desc,
     lat: gpsLat,
     lng: gpsLng,
-    photo: currentPhotoBase64 || null,
+    photo: null,          // non più base64
+    photo_url: photoUrl,  // URL Storage
     ai_analysis: aiText,
     comune: comuneFinale,
     nome_segnalante: nome || null,
@@ -1587,7 +1619,7 @@ async function loadReports() {
     descrizione: r.descrizione,
     lat: r.lat,
     lng: r.lng,
-    photo: r.photo,
+    photo: r.photo_url || r.photo,  // usa URL se disponibile, altrimenti base64
     aiAnalysis: r.ai_analysis,
     comune: r.comune || null,
     date: new Date(r.created_at).toLocaleDateString('it-IT'),

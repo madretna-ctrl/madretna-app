@@ -546,7 +546,7 @@ document.addEventListener("DOMContentLoaded", function() {
       var d = new Date(r.created_at);
       return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
     }).length;
-    var photo = allReports.filter(function(r){ return r.photo; }).length;
+    var photo = allReports.filter(function(r){ return r.photo || r.photo_url; }).length;
     var tc = {}; allReports.forEach(function(r){ tc[r.tipo]=(tc[r.tipo]||0)+1; });
     var top = Object.entries(tc).sort(function(a,b){ return b[1]-a[1]; })[0];
     document.getElementById("s-total").textContent = allReports.length;
@@ -566,7 +566,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     tbody.innerHTML = filtered.map(function(r) {
       var date = new Date(r.created_at).toLocaleDateString("it-IT");
-      var img = r.photo ? "<img class=\"thumb\" src=\""+r.photo+"\" alt=\"foto\">" : "<div class=\"no-photo\">📦</div>";
+      var photoSrc = r.photo_url || r.photo;
+      var img = photoSrc ? "<img class=\"thumb\" src=\""+photoSrc+"\" alt=\"foto\">" : "<div class=\"no-photo\">📦</div>";
       var desc = r.descrizione ? r.descrizione.slice(0,50)+(r.descrizione.length>50?"…":"") : "—";
       var coords = r.lat ? r.lat.toFixed(4)+", "+r.lng.toFixed(4) : "—";
       var badge = BADGE_MAP[r.tipo]||"badge-altro";
